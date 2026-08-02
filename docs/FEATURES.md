@@ -22,17 +22,17 @@ Last updated: 2 Aug 2026
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| F1.1 | Convex schema v1 (exercises, projects, versions, facts, sources, reference entities) | Not started | Sketch in ARCHITECTURE.md |
+| F1.1 | Convex schema v1 (exercises, projects, versions, facts, sources, reference entities) | Done | 17 tables live; projectVersions/reviewQueue deferred to HDB parser phase (D-be3) |
 | F1.2 | Snapshot storage with content hashing (Vercel Blob) | Not started | |
 | F1.3 | HDB launch/project page adapter (fetch + deterministic parser) | Not started | Hourly in launch week |
 | F1.4 | HDB announcements adapter (upcoming exercises) | Not started | official vs inferred labeling |
-| F1.5 | data.gov.sg adapters (construction polygons, resale txns, school directory) | Not started | Needs prod API key |
-| F1.6 | OneMap client (token cache + 72h auto-refresh, search/routing/themes) | Not started | |
+| F1.5 | data.gov.sg adapters (construction polygons, resale txns, school directory) | In progress | Resale sync live (696 rows verified) + school directory sync live; polygons pending |
+| F1.6 | OneMap client (token cache + 72h auto-refresh, search/routing/themes) | In progress | Token cache + lazy refresh + elastic geocode live (verified); routing/themes pending |
 | F1.7 | LLM fallback extraction for changed/unparsed sections | Not started | `extractedBy: llm` marking |
 | F1.8 | Reconciliation job + human review queue | Not started | |
 | F1.9 | Atomic publish → cache invalidation → alert trigger | Not started | |
-| F1.10 | Parser monitoring + Sentry job logs | Not started | |
-| F1.11 | Seed: 10 representative projects with full provenance | Not started | Sprint W1–2 acceptance |
+| F1.10 | Parser monitoring + Sentry job logs | In progress | `ingestionJobs` table records every adapter run with stats/error; Sentry wiring pending |
+| F1.11 | Seed: 10 representative projects with full provenance | Done | 12 projects, idempotent upsert; 228 field-level facts with confidence + source trail |
 
 ## MVP — Explorer & project pages
 
@@ -53,19 +53,19 @@ Last updated: 2 Aug 2026
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| F3.1 | Clerk auth (Google), browse-without-login gating | Not started | |
-| F3.2 | Watchlists: project, town, MRT catchment targets | Not started | Drawn polygons → V2 |
-| F3.3 | Change detection → alert matching engine | Not started | |
-| F3.4 | Email alerts + digest (Resend/Postmark per D5) | Not started | |
-| F3.5 | Comparison workspace (2–4 projects, trade-offs) + persistent tray | Not started | |
+| F3.1 | Clerk auth (Google), browse-without-login gating | In progress | Convex side live (auth.config + users table + authed wrappers); UI wiring pending |
+| F3.2 | Watchlists: project, town, MRT catchment targets | In progress | Backend API done (add/remove/list/isWatching with dedupe); UI pending |
+| F3.3 | Change detection → alert matching engine | In progress | Fan-out (project+town watchers → in-app alerts → telegram batch) live + `sendMeTestAlert`; auto-triggers land with ingestion diffing |
+| F3.4 | Email alerts + digest (Resend/Postmark per D5) | Not started | Telegram interim per D5 |
+| F3.5 | Comparison workspace (2–4 projects, trade-offs) + persistent tray | In progress | No server table for MVP — tray persists in localStorage (D-be1, anonymous-friendly) |
 
 ## MVP — Planner & SEO
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| F4.1 | Planner: constraint extraction into typed profile (show/edit) | Not started | |
-| F4.2 | Transparent weighted ranking + user-adjustable weights | Not started | |
-| F4.3 | Cited AI answers (no uncited project facts; refuse when stale/missing) | Not started | |
+| F4.1 | Planner: constraint extraction into typed profile (show/edit) | In progress | Backend live: LLM extracts strict-JSON constraints (verified); show/edit UI pending |
+| F4.2 | Transparent weighted ranking + user-adjustable weights | In progress | Deterministic `rankProjects` with per-component reasons live (weights 35/25/20/20); adjustable weights pending |
+| F4.3 | Cited AI answers (no uncited project facts; refuse when stale/missing) | In progress | Backend live: narration constrained to retrieved records with mandatory [slug] citations (verified); UI pending |
 | F4.4 | AI docked panel (desktop) / full-screen sheet (mobile) | Not started | |
 | F4.5 | SEO hardening: sitemaps per family, breadcrumbs, structured data, canonical/redirects | Not started | |
 | F4.6 | Analytics: Vercel Web Analytics + activation/retention events | Not started | |
@@ -95,3 +95,4 @@ Last updated: 2 Aug 2026
 | Date | Entry |
 |---|---|
 | 2 Aug 2026 | Tracker created. F0.1, F0.2 done. Next: resolve open decisions, then scaffold (F0.4). |
+| 2 Aug 2026 | Convex backend live on `judicious-cheetah-253` (dev): schema v1 (17 tables), idempotent seed (2 exercises, 27 towns, 50 stations, 12 projects, 36 flat types, 228 provenance facts, 11 sources), data.gov.sg resale sync (696 rows ingested, job logged) + schools sync, OneMap token/geocode (token refresh verified), alerts engine with Telegram delivery (`send` ok, log written), grounded planner (extraction → deterministic ranking → cited narration; anonymous + authed paths). Gates: `lint` + `typecheck` clean. |

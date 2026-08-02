@@ -19,6 +19,10 @@ Append-only. Significant decisions get an ID, date, context, decision, and conse
 | D-flow | 2 Aug 2026 | Build runs fully autonomous, single final review | Per user — no mid-run checkpoints. Quality gates (lint/typecheck/review subagents) run between stages instead. |
 | D-cred | 2 Aug 2026 | Credentials received: OneMap, data.gov.sg dev key, OpenRouter, Clerk test keys | Stored ONLY in `.env.local` (gitignored). data.gov.sg key is dev tier — upgrade to prod before heavy ingestion. |
 | D-tg | 2 Aug 2026 | Telegram alerts verified end-to-end | Bot `@Zainultestbot` (token live), test message delivered to chat 46868450. Clerk `convex` JWT template confirmed created by user. |
+| D-be1 | 2 Aug 2026 | No `comparisons` table — compare tray is client-side localStorage for MVP | Keeps comparison anonymous-friendly per D-auth (no auth wall for browsing). Server-side saved comparisons revisited post-MVP if users ask. |
+| D-be2 | 2 Aug 2026 | `mynicehome.gov.sg` counts as `hdb` source kind (with hdb.gov.sg) | HDB's official sales portal; seed source-kind rule ("hdb.gov.sg → hdb, else publisher") extended accordingly. |
+| D-be3 | 2 Aug 2026 | Schema v1 omits `projectVersions`, `reviewQueue`, `alertDigests` | Field-level `projectFacts` + `ingestionJobs` cover MVP provenance and parser monitoring; versions + review queue land with the HDB parser pipeline (F1.3/F1.8). |
+| D-be4 | 2 Aug 2026 | Planner ranking is deterministic code; LLM only extracts constraints + narrates with [slug] citations | Implements D-ai/D-data guardrails. Ranking weights fixed at 35/25/20/20 (budget/wait/flatType/location) with human-readable reasons; narration failure falls back to a deterministic reply. |
 
 ## Open questions (resolve before scaffolding — F0.3)
 
