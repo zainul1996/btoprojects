@@ -6,8 +6,11 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./project-map.css";
 
 import { formatSgd } from "@/components/price";
-import { MAP_STYLE_URL, SG_BOUNDS, SG_CENTER } from "@/lib/map";
+import { MAP_STYLE_URL, MAP_WORKER_URL, SG_BOUNDS, SG_CENTER } from "@/lib/map";
 import { cn } from "@/lib/utils";
+
+// Serve the worker from /public — the default import.meta.url derivation 404s under Turbopack.
+maplibregl.config.WORKER_URL = MAP_WORKER_URL;
 
 export type ProjectMapItem = {
   slug: string;

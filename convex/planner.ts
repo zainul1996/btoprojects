@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/auth";
+import { lifecycleStatusValidator } from "./schema";
 
 const rankableFlatTypeValidator = v.object({
   type: v.string(),
@@ -20,14 +21,19 @@ const rankableProjectValidator = v.object({
     v.literal("Plus"),
     v.literal("Prime"),
   ),
+  lifecycleStatus: lifecycleStatusValidator,
   estimatedWaitMonths: v.number(),
   estimatedCompletion: v.string(),
+  applicationDeadline: v.optional(v.string()),
+  exerciseLabel: v.optional(v.string()),
   mrtWalkingMinutes: v.number(),
   nearestMrt: v.array(v.string()),
   totalUnits: v.number(),
   lat: v.number(),
   lng: v.number(),
   flatTypes: v.array(rankableFlatTypeValidator),
+  // Record freshness: the chat route derives dataAsOf from the max of these.
+  updatedAt: v.number(),
 });
 
 const plannerMessageValidator = v.object({
@@ -97,8 +103,9 @@ export const allForRanking = internalQuery({
     const projects = await ctx.db.query("projects").collect();
     return await Promise.all(
       projects.map(async (project) => {
-        const [town, flatTypes] = await Promise.all([
+        const [town, exercise, flatTypes] = await Promise.all([
           ctx.db.get("towns", project.townId),
+          ctx.db.get("exercises", project.exerciseId),
           ctx.db
             .query("flatTypes")
             .withIndex("by_project", (q) => q.eq("projectId", project._id))
@@ -110,8 +117,11 @@ export const allForRanking = internalQuery({
           town: town?.name ?? "",
           region: project.region,
           classification: project.classification,
+          lifecycleStatus: project.lifecycleStatus,
           estimatedWaitMonths: project.estimatedWaitMonths,
           estimatedCompletion: project.estimatedCompletion,
+          applicationDeadline: project.applicationDeadline,
+          exerciseLabel: exercise?.label,
           mrtWalkingMinutes: project.mrtWalkingMinutes,
           nearestMrt: project.nearestMrt,
           totalUnits: project.totalUnits,
@@ -123,6 +133,7 @@ export const allForRanking = internalQuery({
             minPrice: f.minPrice,
             maxPrice: f.maxPrice,
           })),
+          updatedAt: project.updatedAt,
         };
       }),
     );
@@ -140,8 +151,9 @@ export const forRanking = query({
     const projects = await ctx.db.query("projects").collect();
     return await Promise.all(
       projects.map(async (project) => {
-        const [town, flatTypes] = await Promise.all([
+        const [town, exercise, flatTypes] = await Promise.all([
           ctx.db.get("towns", project.townId),
+          ctx.db.get("exercises", project.exerciseId),
           ctx.db
             .query("flatTypes")
             .withIndex("by_project", (q) => q.eq("projectId", project._id))
@@ -153,8 +165,11 @@ export const forRanking = query({
           town: town?.name ?? "",
           region: project.region,
           classification: project.classification,
+          lifecycleStatus: project.lifecycleStatus,
           estimatedWaitMonths: project.estimatedWaitMonths,
           estimatedCompletion: project.estimatedCompletion,
+          applicationDeadline: project.applicationDeadline,
+          exerciseLabel: exercise?.label,
           mrtWalkingMinutes: project.mrtWalkingMinutes,
           nearestMrt: project.nearestMrt,
           totalUnits: project.totalUnits,
@@ -166,6 +181,7 @@ export const forRanking = query({
             minPrice: f.minPrice,
             maxPrice: f.maxPrice,
           })),
+          updatedAt: project.updatedAt,
         };
       }),
     );

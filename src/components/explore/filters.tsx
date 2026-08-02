@@ -21,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
 import { cn } from "@/lib/utils";
 import {
+  APPLICATION_STATUSES,
+  APPLICATION_STATUS_LABELS,
   CLASSIFICATIONS,
   FLAT_TYPES,
   PRICE_MAX,
@@ -30,11 +32,22 @@ import {
   WAIT_MAX,
   WAIT_MIN,
   hasActiveFilters,
+  type ApplicationStatus,
   type Classification,
   type ExplorerFilters,
+  type StatusCounts,
 } from "./filter-model";
 
 const ALL = "__all__";
+
+const STATUS_OPTIONS: { value: ApplicationStatus | undefined; label: string }[] =
+  [
+    { value: undefined, label: "All" },
+    ...APPLICATION_STATUSES.map((s) => ({
+      value: s,
+      label: APPLICATION_STATUS_LABELS[s],
+    })),
+  ];
 
 function firstValue(value: number | readonly number[]): number {
   return typeof value === "number" ? value : value[0];
@@ -44,6 +57,8 @@ type ExploreFiltersProps = {
   filters: ExplorerFilters;
   onPatch: (patch: Partial<ExplorerFilters>) => void;
   onReset: () => void;
+  /** Counts per status option, computed with every other filter applied. */
+  statusCounts?: StatusCounts;
   className?: string;
 };
 
@@ -56,6 +71,7 @@ export function ExploreFilters({
   filters,
   onPatch,
   onReset,
+  statusCounts,
   className,
 }: ExploreFiltersProps) {
   const towns = useQuery(api.towns.list, {});
@@ -83,6 +99,36 @@ export function ExploreFilters({
 
   return (
     <div className={cn("flex flex-col gap-6", className)}>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Application status</legend>
+        <div
+          role="group"
+          aria-label="Application status"
+          className="grid grid-cols-2 gap-1 rounded-lg border border-border p-1"
+        >
+          {STATUS_OPTIONS.map((option) => {
+            const active = filters.status === option.value;
+            const count = statusCounts?.[option.value ?? "all"];
+            return (
+              <Button
+                key={option.label}
+                type="button"
+                variant={active ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={active}
+                onClick={() => onPatch({ status: option.value })}
+              >
+                <span className="tnum">
+                  {count !== undefined
+                    ? `${option.label} (${count})`
+                    : option.label}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+      </fieldset>
+
       <div className="space-y-2">
         <Label htmlFor="filter-search">Search</Label>
         <div className="relative">

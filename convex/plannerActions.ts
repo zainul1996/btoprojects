@@ -117,9 +117,15 @@ export const sendMessage = action({
       constraints = null;
     }
 
+    // Fetched for chitchat too: the narration may only make coverage claims
+    // it can see, so it always gets the real town list and project count.
+    const allProjects = await ctx.runQuery(internal.planner.allForRanking, {});
+    const townsCovered = [
+      ...new Set(allProjects.map((p) => p.town).filter((t) => t.length > 0)),
+    ].sort((a, b) => a.localeCompare(b));
+
     let top: RankedProject[] = [];
     if (kind === "constraints") {
-      const allProjects = await ctx.runQuery(internal.planner.allForRanking, {});
       top = rankProjects(
         allProjects,
         constraints ? toRankingConstraints(constraints) : {},
@@ -137,7 +143,15 @@ export const sendMessage = action({
           ...transcript,
           {
             role: "user",
-            content: buildNarrationContent({ message, constraints, kind, top }),
+            content: buildNarrationContent({
+              message,
+              constraints,
+              kind,
+              top,
+              todayISO: new Date().toISOString().slice(0, 10),
+              totalProjects: allProjects.length,
+              townsCovered,
+            }),
           },
         ],
       });

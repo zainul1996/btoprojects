@@ -22,7 +22,11 @@ export interface RankableProject {
   town: string;
   region: string;
   classification: "Standard" | "Plus" | "Prime";
+  lifecycleStatus: string;
   estimatedWaitMonths: number;
+  estimatedCompletion: string;
+  applicationDeadline?: string;
+  exerciseLabel?: string;
   lat: number;
   lng: number;
   mrtWalkingMinutes: number;

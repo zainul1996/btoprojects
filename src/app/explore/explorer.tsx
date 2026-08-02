@@ -10,12 +10,15 @@ import { api } from "../../../convex/_generated/api";
 import { ExploreFilters } from "@/components/explore/filters";
 import {
   activeFilterChips,
+  applicationStatusOf,
   hasActiveFilters,
   parseExplorerParams,
   serializeExplorerParams,
+  todayIso,
   DEFAULT_FILTERS,
   type ExplorerFilters,
   type ExplorerSort,
+  type StatusCounts,
 } from "@/components/explore/filter-model";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectCard, type ProjectSummary } from "@/components/project-card";
@@ -146,14 +149,44 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const results = useQuery(api.projects.list, queryArgs);
 
-  const visible = useMemo(() => {
+  // Status is a client-side UI filter (it depends on "today"), so it narrows
+  // here rather than in the Convex query — same mechanism as multi-select
+  // classification. Counts ignore the status filter itself so each segmented
+  // option shows what it would match.
+  const today = todayIso();
+
+  const statusBase = useMemo(() => {
     if (results === undefined) return undefined;
-    const narrowed =
-      filters.classifications.length > 1
-        ? results.filter((r) =>
-            filters.classifications.includes(r.project.classification),
+    return filters.classifications.length > 1
+      ? results.filter((r) =>
+          filters.classifications.includes(r.project.classification),
+        )
+      : results;
+  }, [results, filters.classifications]);
+
+  const statusCounts = useMemo<StatusCounts | undefined>(() => {
+    if (statusBase === undefined) return undefined;
+    const counts: StatusCounts = {
+      all: statusBase.length,
+      open: 0,
+      upcoming: 0,
+      closed: 0,
+    };
+    for (const r of statusBase) {
+      counts[applicationStatusOf(r.project, today)] += 1;
+    }
+    return counts;
+  }, [statusBase, today]);
+
+  const visible = useMemo(() => {
+    if (statusBase === undefined) return undefined;
+    const narrowed = (
+      filters.status
+        ? statusBase.filter(
+            (r) => applicationStatusOf(r.project, today) === filters.status,
           )
-        : [...results];
+        : [...statusBase]
+    );
     switch (sort) {
       case "wait":
         narrowed.sort(
@@ -169,7 +202,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
         );
     }
     return narrowed;
-  }, [results, filters.classifications, sort]);
+  }, [statusBase, filters.status, sort, today]);
 
   const mapItems = useMemo(
     () =>
@@ -239,6 +272,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
                 filters={filters}
                 onPatch={patch}
                 onReset={reset}
+                statusCounts={statusCounts}
               />
             </div>
             <div className="sticky bottom-0 border-t border-border bg-popover p-4">
@@ -351,7 +385,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
         <EmptyState
           icon={SearchX}
           title="No projects match"
-          hint="Try widening the price range or clearing a filter."
+          hint="Try clearing a filter or widening the price range."
           action={
             hasActiveFilters(filters) ? (
               <Button type="button" variant="outline" size="sm" onClick={reset}>
@@ -387,7 +421,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
     <div className="flex flex-col lg:flex-row lg:items-start">
       {/* Desktop filter rail */}
       <aside className="sticky top-14 order-3 hidden h-[calc(100svh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-border px-5 py-6 lg:order-1 lg:block">
-        <ExploreFilters filters={filters} onPatch={patch} onReset={reset} />
+        <ExploreFilters
+          filters={filters}
+          onPatch={patch}
+          onReset={reset}
+          statusCounts={statusCounts}
+        />
       </aside>
 
       {/* Map — above the list on mobile, right column on desktop */}

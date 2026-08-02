@@ -1,8 +1,13 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Map as MaplibreMap, Marker } from "maplibre-gl";
+import { Map as MaplibreMap, Marker, config as maplibreConfig } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+
+import { MAP_WORKER_URL } from "@/lib/map";
+
+// Serve the worker from /public — the default import.meta.url derivation 404s under Turbopack.
+maplibreConfig.WORKER_URL = MAP_WORKER_URL;
 
 /**
  * Static locator map — one navy marker, no interaction (DESIGN.md: motion is
