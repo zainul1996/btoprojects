@@ -24,7 +24,7 @@ next-env.d.ts
 /dist
 
 # convex generated code
-/convex/_generated/
+# convex/_generated is committed so Vercel builds work without Convex CLI auth
 
 # misc
 .DS_Store
