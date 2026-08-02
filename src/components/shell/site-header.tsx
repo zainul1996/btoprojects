@@ -91,6 +91,34 @@ function NotificationBell() {
   )
 }
 
+function MobileAlertsLink() {
+  const pathname = usePathname()
+  const unread = useUnreadAlerts()
+  const active = isActive(pathname, "/watchlist")
+  return (
+    <SheetClose
+      render={
+        <Link
+          href="/watchlist?tab=alerts"
+          aria-current={active ? "page" : undefined}
+        />
+      }
+      className={cn(
+        "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+        active
+          ? "bg-teal-subtle text-teal-deeper"
+          : "text-foreground hover:bg-muted"
+      )}
+    >
+      <span className="flex items-center gap-2">
+        <Bell className="size-4" aria-hidden />
+        Alerts
+      </span>
+      <UnreadDot unread={unread} />
+    </SheetClose>
+  )
+}
+
 function SiteHeader() {
   const pathname = usePathname()
 
@@ -178,6 +206,9 @@ function SiteHeader() {
                     </SheetClose>
                   )
                 })}
+                <Show when="signed-in">
+                  <MobileAlertsLink />
+                </Show>
               </nav>
             </SheetContent>
           </Sheet>
