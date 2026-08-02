@@ -64,7 +64,7 @@ export default async function UpcomingPage() {
     <div className="mx-auto w-full max-w-7xl px-4 md:px-6">
       <PageHeader
         title="Upcoming launches"
-        lede="What's officially on the calendar — and an honest note on what isn't yet."
+        lede="What's officially on the calendar, and an honest note on what isn't yet."
       />
 
       <Section
@@ -119,7 +119,7 @@ export default async function UpcomingPage() {
 
       <Section
         title="Expected next"
-        description="Not official — our reading of HDB's usual rhythm, labelled as such."
+        description="Not official. This is our reading of HDB's usual rhythm, labelled as such."
       >
         <Card className="max-w-2xl gap-0 border-dashed py-0">
           <CardContent className="flex flex-col gap-3 p-5">
@@ -133,7 +133,7 @@ export default async function UpcomingPage() {
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   HDB typically runs exercises in February, June and October.
-                  Details exist only when HDB publishes them — we&rsquo;ll list
+                  Details exist only when HDB publishes them. We&rsquo;ll list
                   them here the day they&rsquo;re official.
                 </p>
               </div>

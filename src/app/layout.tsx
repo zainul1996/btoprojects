@@ -17,7 +17,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "BTOProjects.sg — Plan your HDB home with confidence",
   description:
-    "BTOProjects.sg is a decision platform for Singapore HDB BTO launches — compare projects, analyse locations, and plan your future home with confidence.",
+    "BTOProjects.sg is a decision platform for Singapore HDB BTO launches. Compare projects, analyse locations and plan your home with confidence.",
 };
 
 export const viewport: Viewport = {

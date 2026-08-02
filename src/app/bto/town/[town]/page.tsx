@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     metadataBase: new URL("https://btoprojects.sg"),
     title: `BTO in ${resolved} | BTOProjects.sg`,
-    description: `Every BTO project we track in ${resolved} — official prices, flat mix, waiting times and a full source trail.`,
+    description: `Every BTO project we track in ${resolved}: official prices, flat mix, waiting times and a full source trail.`,
     alternates: { canonical: `/bto/town/${param.toLowerCase()}` },
     openGraph: {
       title: `BTO in ${resolved} | BTOProjects.sg`,
@@ -76,8 +76,8 @@ export default async function TownPage({ params }: Props) {
         </div>
 
         <p className="max-w-2xl text-base text-muted-foreground">
-          Follow {resolvedName} to hear when a project launches here — town
-          watches are first-class on BTOProjects.sg.
+          Follow {resolvedName} and we&apos;ll alert you when a project
+          launches here or official details change.
         </p>
       </header>
 

@@ -46,7 +46,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
     try {
       await markAllRead({});
     } catch {
-      toast.error("Couldn't mark alerts as read — please try again");
+      toast.error("Couldn't mark alerts as read. Please try again.");
     } finally {
       setMarkingAll(false);
     }
@@ -185,9 +185,9 @@ function TestAlertCard() {
     setSending(true);
     try {
       await sendTest({});
-      toast("Alert created — check this tab and Telegram");
+      toast("Alert created. Check this tab and Telegram.");
     } catch {
-      toast.error("Couldn't send a test alert — please try again");
+      toast.error("Couldn't send a test alert. Please try again.");
     } finally {
       setSending(false);
     }

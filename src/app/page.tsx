@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
   title: "BTOProjects.sg — Plan your HDB home with confidence",
   description:
-    "Every BTO project, structured and cited — explore, compare and follow the places you care about.",
+    "Every BTO project, structured and cited. Explore, compare and follow the places you care about.",
 };
 
 const FEATURES = [
@@ -32,7 +32,7 @@ const FEATURES = [
   {
     icon: History,
     title: "Lifecycle record",
-    line: "Every project keeps a dated history — from announcement to launch, construction and MOP.",
+    line: "Every project keeps a dated history, from announcement to launch, construction and MOP.",
   },
 ] as const;
 
@@ -56,7 +56,7 @@ export default async function HomePage() {
         </p>
         <h1 className="mt-3 max-w-2xl">Plan your HDB home with confidence</h1>
         <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-          Every BTO project, structured and cited — explore, compare and follow
+          Every BTO project, structured and cited. Explore, compare and follow
           the places you care about.
         </p>
         <div className="mt-8 flex flex-wrap items-center gap-3">

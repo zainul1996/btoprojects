@@ -90,7 +90,7 @@ function WatchButtonAuthed({ targetType, targetId, label, size = "sm", className
         });
       }
     } catch {
-      toast.error("Couldn't update your watchlist — please try again");
+      toast.error("Couldn't update your watchlist. Please try again.");
     }
   };
 

@@ -37,7 +37,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     metadataBase: new URL("https://btoprojects.sg"),
     title: `${exercise.label} | BTOProjects.sg`,
-    description: `${projectCount} project${projectCount === 1 ? "" : "s"} in the ${exercise.label} launch — official prices, flat mix, waiting times and sources.`,
+    description: `${projectCount} project${projectCount === 1 ? "" : "s"} in the ${exercise.label} launch: official prices, flat mix, waiting times and sources.`,
     alternates: { canonical: `/bto/${exercise.key}` },
     openGraph: {
       title: `${exercise.label} | BTOProjects.sg`,
@@ -61,7 +61,7 @@ export default async function ExercisePage({ params }: Props) {
         <EmptyState
           icon={CalendarX}
           title={`No exercise called "${key}"`}
-          hint="BTO exercises are keyed by year and month — for example /bto/2026-06. Browse everything we track."
+          hint="BTO exercises are keyed by year and month, for example /bto/2026-06. Browse everything we track."
           action={
             <Button render={<Link href="/projects" />} nativeButton={false}>
               Browse all projects

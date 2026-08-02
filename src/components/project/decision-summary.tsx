@@ -19,7 +19,7 @@ function suitBullets(details: ProjectDetails): string[] {
 
   if (project.estimatedWaitMonths <= 30) {
     bullets.push(
-      `Buyers who need keys sooner — the estimated wait is ~${project.estimatedWaitMonths} months, shorter than most recent launches.`,
+      `Buyers who need keys sooner: the estimated wait is ~${project.estimatedWaitMonths} months, shorter than most recent launches.`,
     );
   }
   if (project.classification === "Prime") {
@@ -32,27 +32,27 @@ function suitBullets(details: ProjectDetails): string[] {
     );
   } else if (entry !== null && entry <= 400_000) {
     bullets.push(
-      `Budget-first households — Standard-class flats from ${formatSgd(entry)} before grants.`,
+      `Budget-first households: Standard-class flats from ${formatSgd(entry)} before grants.`,
     );
   } else {
     bullets.push(
-      "Buyers who want standard BTO terms — a 5-year MOP and no resale clawback.",
+      "Buyers who want standard BTO terms: a 5-year MOP and no resale clawback.",
     );
   }
   if (project.mrtWalkingMinutes > 0 && project.mrtWalkingMinutes <= 7 && project.nearestMrt.length > 0) {
     bullets.push(
-      `Commuters — about a ${project.mrtWalkingMinutes}-minute walk to ${project.nearestMrt[0]}.`,
+      `Commuters: about a ${project.mrtWalkingMinutes}-minute walk to ${project.nearestMrt[0]}.`,
     );
   }
   if (flatTypes.some((f) => f.type === "3Gen")) {
-    bullets.push("Multi-generation families — 3Gen flats are on offer.");
+    bullets.push("Multi-generation families: 3Gen flats are on offer.");
   }
   if (flatTypes.some((f) => f.type === "2-room Flexi")) {
-    bullets.push("Singles and smaller households — 2-room Flexi flats are on offer.");
+    bullets.push("Singles and smaller households: 2-room Flexi flats are on offer.");
   }
   if (project.totalUnits >= 900) {
     bullets.push(
-      `Applicants who prefer a larger site — ${project.totalUnits.toLocaleString("en-SG")} units in one launch.`,
+      `Applicants who prefer a larger site: ${project.totalUnits.toLocaleString("en-SG")} units in one launch.`,
     );
   }
   if (bullets.length < 3) {
@@ -68,21 +68,21 @@ function keyCompromise(details: ProjectDetails): string {
   const townName = town?.name ?? project.region;
 
   if (project.estimatedWaitMonths >= 48) {
-    return `A long wait — estimated ~${project.estimatedWaitMonths} months to key collection.`;
+    return `A long wait: estimated ~${project.estimatedWaitMonths} months to key collection.`;
   }
   if (entry !== null && entry >= 550_000) {
-    return `Entry prices are high for a BTO — from ${formatSgd(entry)} before grants.`;
+    return `Entry prices are high for a BTO: from ${formatSgd(entry)} before grants.`;
   }
   if (project.mrtWalkingMinutes >= 10) {
     return `The nearest MRT is about a ${project.mrtWalkingMinutes}-minute walk away.`;
   }
   if (project.classification !== "Standard") {
-    return `${project.classification}-class rules apply at resale — a longer MOP and tighter conditions than Standard flats.`;
+    return `${project.classification}-class rules apply at resale: a longer MOP and tighter conditions than Standard flats.`;
   }
   if (project.region !== "Central") {
-    return `${townName} sits outside the central region — weigh commute times.`;
+    return `${townName} sits outside the central region. Weigh commute times.`;
   }
-  return "Nothing unusual for its class — weigh price, wait and location against your plans.";
+  return "Nothing unusual for its class. Weigh price, wait and location against your plans.";
 }
 
 export function DecisionSummary({ details }: { details: ProjectDetails }) {

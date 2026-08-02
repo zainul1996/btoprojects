@@ -64,6 +64,7 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | # | Feature | Status | Notes |
 |---|---|---|---|
 | F4.1 | Planner: constraint extraction (typed, shown as chips) | Done | OpenRouter deepseek-v4-flash; verified extraction |
+| F4.1b | Planner: streaming chat UX | Done | AI SDK 7 route handler; phase statuses (reading → searching → ranking → writing), token streaming, markdown + citation links, stop/retry; reasoning tokens excluded for low TTFT |
 | F4.2 | Transparent weighted ranking + breakdowns | Done | Deterministic 4-factor score; user-adjustable weights → V1 |
 | F4.3 | Cited AI answers ([slug] links only from cited set) | Done | Verified: all 5 narrations cited in round-trip test |
 | F4.4 | Planner surface | Done | Full-page chat (mobile + desktop); docked side-panel variant → later |

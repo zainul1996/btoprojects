@@ -74,7 +74,7 @@ export function WatchingTab({ ready }: { ready: boolean }) {
       await removeWatch({ watchlistId: entry._id });
       toast(`Stopped watching ${entry.label}`);
     } catch {
-      toast.error("Couldn't update your watchlist — please try again");
+      toast.error("Couldn't update your watchlist. Please try again.");
     }
   };
 

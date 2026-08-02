@@ -252,7 +252,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
           </SheetContent>
         </Sheet>
 
-        <p className="text-sm text-muted-foreground" aria-live="polite">
+        <div className="text-sm text-muted-foreground" aria-live="polite">
           {visible === undefined ? (
             <Skeleton className="inline-block h-4 w-20 align-middle" />
           ) : (
@@ -263,7 +263,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
               {visible.length === 1 ? "project" : "projects"}
             </>
           )}
-        </p>
+        </div>
 
         <div className="ml-auto flex items-center gap-2">
           <Select

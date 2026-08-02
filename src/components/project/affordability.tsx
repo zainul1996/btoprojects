@@ -55,8 +55,8 @@ export function Affordability({ details }: { details: ProjectDetails }) {
         </div>
 
         <p className="border-t border-border/60 pt-3 text-xs text-muted-foreground">
-          Indicative only — assumes a {LOAN_YEARS}-year HDB loan at 2.6%. Not
-          financial advice. Grants may reduce cost — check{" "}
+          Indicative only: assumes a {LOAN_YEARS}-year HDB loan at 2.6%. Not
+          financial advice. Grants may reduce cost; check{" "}
           <a
             href="https://www.hdb.gov.sg"
             target="_blank"

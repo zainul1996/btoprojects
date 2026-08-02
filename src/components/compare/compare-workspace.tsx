@@ -303,7 +303,7 @@ export function CompareWorkspace({
     <div>
       {overflowCount > 0 && (
         <p className="mb-4 rounded-lg border border-dashed px-4 py-3 text-sm text-muted-foreground">
-          Compare supports up to {COMPARE_MAX} projects — showing the first{" "}
+          Compare supports up to {COMPARE_MAX} projects. Showing the first{" "}
           {COMPARE_MAX} from your link.
         </p>
       )}
@@ -320,7 +320,7 @@ export function CompareWorkspace({
                 <span className="font-medium text-ink">
                   {prettifySlug(slug)}
                 </span>{" "}
-                — it may have been renamed or removed.
+                . It may have been renamed or removed.
               </p>
               <Button
                 variant="ghost"
@@ -350,7 +350,7 @@ export function CompareWorkspace({
         <>
           {found.length === 1 && (
             <p className="mb-4 rounded-lg bg-teal-subtle/50 px-4 py-3 text-sm text-teal-deeper">
-              Add at least one more project to compare — use the Compare button
+              Add at least one more project to compare. Use the Compare button
               on any project card.
             </p>
           )}

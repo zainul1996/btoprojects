@@ -59,8 +59,8 @@ export function SourceLog({ details }: { details: ProjectDetails }) {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-4">
           <p className="text-xs text-muted-foreground">
-            See something wrong? Every fact above carries its source —
-            corrections welcome.
+            See something wrong? Every fact above carries its source.
+            Corrections welcome.
           </p>
           <LastVerified date={latestRetrievedAt(details)} />
         </div>

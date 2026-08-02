@@ -13,12 +13,12 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://btoprojects.sg"),
   title: "All BTO projects | BTOProjects.sg",
   description:
-    "Every HDB BTO project we track, grouped by launch exercise — official prices, flat mix, waiting times and a full source trail on every page.",
+    "Every HDB BTO project we track, grouped by launch exercise: official prices, flat mix, waiting times and a full source trail on every page.",
   alternates: { canonical: "/projects" },
   openGraph: {
     title: "All BTO projects | BTOProjects.sg",
     description:
-      "Every HDB BTO project we track, grouped by launch exercise — with provenance on every fact.",
+      "Every HDB BTO project we track, grouped by launch exercise, with provenance on every fact.",
     url: "/projects",
     type: "website",
   },

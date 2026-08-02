@@ -10,8 +10,11 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ai-sdk/react": "^4.0.51",
     "@base-ui/react": "^1.6.0",
     "@clerk/nextjs": "^7.6.4",
+    "@openrouter/ai-sdk-provider": "^3.0.0",
+    "ai": "^7.0.48",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -23,6 +26,8 @@
     "next-themes": "^0.4.6",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
     "shadcn": "^4.16.1",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.6.0",

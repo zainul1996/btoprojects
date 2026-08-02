@@ -12,7 +12,7 @@ function SiteFooter() {
         </div>
         <div className="space-y-1.5 text-xs text-muted-foreground">
           <p>
-            Independent product — not affiliated with HDB. Verify official
+            Independent product, not affiliated with HDB. Verify official
             details at{" "}
             <a
               href="https://www.hdb.gov.sg"
@@ -25,8 +25,8 @@ function SiteFooter() {
             .
           </p>
           <p>
-            Source data: Housing &amp; Development Board and data.gov.sg —
-            individual records cite their source and verification date.
+            Source data: Housing &amp; Development Board and data.gov.sg.
+            Individual records cite their source and verification date.
           </p>
         </div>
         <p className="text-xs text-muted-foreground">

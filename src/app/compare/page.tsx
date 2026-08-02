@@ -8,7 +8,7 @@ import { PageHeader } from "@/components/page-header";
 export const metadata: Metadata = {
   title: "Compare BTO projects",
   description:
-    "Side-by-side comparison of Singapore HDB BTO projects — price, wait, location, restrictions and what you give up.",
+    "Side-by-side comparison of Singapore HDB BTO projects: price, wait, location, restrictions and what you give up.",
 };
 
 export default async function ComparePage({
@@ -34,7 +34,7 @@ export default async function ComparePage({
     <div className="mx-auto max-w-7xl px-4 pb-24 md:px-6">
       <PageHeader
         title="Compare"
-        lede="Side by side: price, wait, location, restrictions — and what you give up."
+        lede="Side by side: price, wait, location, restrictions, and what you give up."
       />
       <CompareWorkspace slugs={slugs} summaries={summaries} />
     </div>

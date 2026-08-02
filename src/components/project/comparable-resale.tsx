@@ -24,7 +24,7 @@ export function ComparableResale({
       <CardContent className="space-y-5 p-5 md:p-6">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-base font-semibold text-ink">
-            Resale context — {townName}
+            Resale context: {townName}
           </h3>
           <SourceBadge variant="estimated" size="sm" />
         </div>
@@ -32,7 +32,7 @@ export function ComparableResale({
         {comparables.count === 0 ? (
           <p className="text-sm text-muted-foreground">
             No resale transactions on record for this flat mix in {townName}{" "}
-            yet — the town may be too new for a resale market.
+            yet. The town may be too new for a resale market.
           </p>
         ) : (
           <>
@@ -121,7 +121,7 @@ export function ComparableResale({
           >
             data.gov.sg
           </a>
-          . Comparables inform context — they are not a prediction of this
+          . Comparables inform context. They are not a prediction of this
           project&apos;s future price.
         </p>
       </CardContent>

@@ -6,7 +6,7 @@ import { Explorer } from "./explorer";
 export const metadata: Metadata = {
   title: "Explore BTO projects — BTOProjects.sg",
   description:
-    "Every BTO project in Singapore on one calm map — filter by town, region, price, flat type, wait time and classification.",
+    "Every BTO project in Singapore on one calm map. Filter by town, region, price, flat type, wait time and classification.",
 };
 
 export default async function ExplorePage({

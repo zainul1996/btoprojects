@@ -1,7 +1,34 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery } from "./_generated/server";
+import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/auth";
+
+const rankableFlatTypeValidator = v.object({
+  type: v.string(),
+  units: v.number(),
+  minPrice: v.number(),
+  maxPrice: v.number(),
+});
+
+const rankableProjectValidator = v.object({
+  slug: v.string(),
+  name: v.string(),
+  town: v.string(),
+  region: v.string(),
+  classification: v.union(
+    v.literal("Standard"),
+    v.literal("Plus"),
+    v.literal("Prime"),
+  ),
+  estimatedWaitMonths: v.number(),
+  estimatedCompletion: v.string(),
+  mrtWalkingMinutes: v.number(),
+  nearestMrt: v.array(v.string()),
+  totalUnits: v.number(),
+  lat: v.number(),
+  lng: v.number(),
+  flatTypes: v.array(rankableFlatTypeValidator),
+});
 
 const plannerMessageValidator = v.object({
   role: v.union(v.literal("user"), v.literal("assistant")),
@@ -99,6 +126,98 @@ export const allForRanking = internalQuery({
         };
       }),
     );
+  },
+});
+
+/**
+ * Public twin of allForRanking: project data is public (no auth wall), and
+ * the streaming chat route handler reads it through ConvexHttpClient.
+ */
+export const forRanking = query({
+  args: {},
+  returns: v.array(rankableProjectValidator),
+  handler: async (ctx) => {
+    const projects = await ctx.db.query("projects").collect();
+    return await Promise.all(
+      projects.map(async (project) => {
+        const [town, flatTypes] = await Promise.all([
+          ctx.db.get("towns", project.townId),
+          ctx.db
+            .query("flatTypes")
+            .withIndex("by_project", (q) => q.eq("projectId", project._id))
+            .collect(),
+        ]);
+        return {
+          slug: project.slug,
+          name: project.name,
+          town: town?.name ?? "",
+          region: project.region,
+          classification: project.classification,
+          estimatedWaitMonths: project.estimatedWaitMonths,
+          estimatedCompletion: project.estimatedCompletion,
+          mrtWalkingMinutes: project.mrtWalkingMinutes,
+          nearestMrt: project.nearestMrt,
+          totalUnits: project.totalUnits,
+          lat: project.lat,
+          lng: project.lng,
+          flatTypes: flatTypes.map((f) => ({
+            type: f.type,
+            units: f.units,
+            minPrice: f.minPrice,
+            maxPrice: f.maxPrice,
+          })),
+        };
+      }),
+    );
+  },
+});
+
+/**
+ * Client-side persistence for the streaming planner: after a reply finishes
+ * streaming, the chat UI saves the turn here (same storage as persistTurn).
+ */
+export const saveTurn = authedMutation({
+  args: {
+    sessionId: v.optional(v.id("plannerSessions")),
+    userMessage: v.string(),
+    assistantMessage: v.string(),
+    constraints: v.optional(v.any()),
+    citedProjectSlugs: v.array(v.string()),
+  },
+  returns: v.id("plannerSessions"),
+  handler: async (ctx, args) => {
+    const newMessages: Doc<"plannerSessions">["messages"] = [
+      { role: "user", content: args.userMessage },
+      {
+        role: "assistant",
+        content: args.assistantMessage,
+        citedProjectSlugs: args.citedProjectSlugs,
+        constraints: args.constraints,
+      },
+    ];
+
+    const existing = args.sessionId
+      ? await ctx.db.get("plannerSessions", args.sessionId)
+      : undefined;
+    if (existing) {
+      if (existing.userId !== ctx.user._id) throw new Error("Unauthorized");
+      const merged = [...existing.messages, ...newMessages].slice(
+        -MAX_STORED_MESSAGES,
+      );
+      await ctx.db.patch("plannerSessions", existing._id, {
+        messages: merged,
+        constraints: args.constraints ?? existing.constraints,
+        updatedAt: Date.now(),
+      });
+      return existing._id;
+    }
+
+    return await ctx.db.insert("plannerSessions", {
+      userId: ctx.user._id,
+      messages: newMessages,
+      constraints: args.constraints,
+      updatedAt: Date.now(),
+    });
   },
 });
 
