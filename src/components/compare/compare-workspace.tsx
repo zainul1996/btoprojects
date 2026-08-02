@@ -3,10 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
-import { useQuery } from "convex/react";
 import { ArrowLeftRight, X } from "lucide-react";
 
-import { api } from "../../../convex/_generated/api";
 import { CLASSIFICATION_POLICY } from "@/components/compare/policy";
 import { useCompare } from "@/components/compare-tray";
 import { EmptyState } from "@/components/empty-state";
@@ -16,7 +14,6 @@ import type { ProjectSummary } from "@/components/project-card";
 import { SourceBadge } from "@/components/source-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { COMPARE_MAX, compareUrl, prettifySlug } from "@/lib/compare";
 import { cn } from "@/lib/utils";
 
@@ -259,23 +256,27 @@ function bestByRow(
   return best;
 }
 
-export function CompareWorkspace({ slugs }: { slugs: string[] }) {
+export function CompareWorkspace({
+  slugs,
+  summaries,
+}: {
+  slugs: string[];
+  /** Server-fetched summaries so shared links render real content on first paint. */
+  summaries: ProjectSummary[];
+}) {
   const router = useRouter();
   const { remove: removeFromTray } = useCompare();
-  const all = useQuery(api.projects.list, {});
 
   const requested = slugs.slice(0, COMPARE_MAX);
   const overflowCount = slugs.length - requested.length;
 
   const found: ProjectSummary[] = [];
   const unknown: string[] = [];
-  if (all !== undefined) {
-    const bySlug = new Map(all.map((s) => [s.project.slug, s]));
-    for (const slug of requested) {
-      const hit = bySlug.get(slug);
-      if (hit) found.push(hit);
-      else unknown.push(slug);
-    }
+  const bySlug = new Map(summaries.map((s) => [s.project.slug, s]));
+  for (const slug of requested) {
+    const hit = bySlug.get(slug);
+    if (hit) found.push(hit);
+    else unknown.push(slug);
   }
 
   const removeSlug = (slug: string) => {
@@ -296,10 +297,6 @@ export function CompareWorkspace({ slugs }: { slugs: string[] }) {
         }
       />
     );
-  }
-
-  if (all === undefined) {
-    return <CompareSkeleton />;
   }
 
   return (
@@ -360,21 +357,6 @@ export function CompareWorkspace({ slugs }: { slugs: string[] }) {
           <CompareTable projects={found} onRemove={removeSlug} />
         </>
       )}
-    </div>
-  );
-}
-
-function CompareSkeleton() {
-  return (
-    <div
-      className="space-y-3 rounded-xl border bg-surface p-4"
-      aria-busy="true"
-      aria-label="Loading comparison"
-    >
-      <Skeleton className="h-16 w-full" />
-      {Array.from({ length: 7 }, (_, i) => (
-        <Skeleton key={i} className="h-8 w-full" />
-      ))}
     </div>
   );
 }

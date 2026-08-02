@@ -1,6 +1,6 @@
 "use client";
 
-import { Show, SignInButton } from "@clerk/nextjs";
+import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Bell } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
@@ -12,26 +12,35 @@ import { WatchingTab } from "@/components/watchlist/watching-tab";
 
 export type WatchlistTab = "watching" | "alerts";
 
-export function WatchlistClient({ initialTab }: { initialTab: WatchlistTab }) {
-  return (
-    <>
-      <Show when="signed-out">
-        <EmptyState
-          icon={Bell}
-          title="Sign in to watch places"
-          hint="Watching is how you get alerts when HDB updates a project, town or station you care about."
-          action={
-            <SignInButton mode="modal">
-              <Button>Sign in</Button>
-            </SignInButton>
-          }
-        />
-      </Show>
-      <Show when="signed-in">
-        <AuthedWatchlist initialTab={initialTab} />
-      </Show>
-    </>
-  );
+export function WatchlistClient({
+  initialTab,
+  signedIn,
+}: {
+  initialTab: WatchlistTab;
+  /** Server-resolved auth state — determines SSR markup. */
+  signedIn: boolean;
+}) {
+  const { isLoaded, isSignedIn } = useAuth();
+  // Before Clerk hydrates, trust the server-resolved value (no flash);
+  // after, client truth wins (modal sign-in flips without navigation).
+  const authed = isLoaded ? isSignedIn === true : signedIn;
+
+  if (!authed) {
+    return (
+      <EmptyState
+        icon={Bell}
+        title="Sign in to watch places"
+        hint="Watching is how you get alerts when HDB updates a project, town or station you care about."
+        action={
+          <SignInButton mode="modal">
+            <Button>Sign in</Button>
+          </SignInButton>
+        }
+      />
+    );
+  }
+
+  return <AuthedWatchlist initialTab={initialTab} />;
 }
 
 function AuthedWatchlist({ initialTab }: { initialTab: WatchlistTab }) {

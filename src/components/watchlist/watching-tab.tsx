@@ -8,6 +8,7 @@ import type { FunctionReturnType } from "convex/server";
 
 import { api } from "../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
+import { townHref } from "@/components/project/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,7 +34,7 @@ function viewHref(entry: WatchEntry): string {
     case "project":
       return `/projects/${entry.targetId}`;
     case "town":
-      return `/bto/town/${entry.targetId.toLowerCase().replace(/\s+/g, "-")}`;
+      return townHref(entry.targetId);
     case "mrt":
       return `/explore?q=${encodeURIComponent(entry.label)}`;
   }

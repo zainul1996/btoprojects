@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { auth } from "@clerk/nextjs/server";
 
 import { PageHeader } from "@/components/page-header";
 import { WatchlistClient } from "@/components/watchlist/watchlist-client";
@@ -16,6 +17,9 @@ export default async function WatchlistPage({
 }) {
   const { tab } = await searchParams;
   const initialTab = tab === "alerts" ? "alerts" : "watching";
+  // Server-resolved auth so anonymous visitors see the gate on first paint
+  // (client Clerk state reconciles after hydration — modal sign-in included).
+  const { userId } = await auth();
 
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 md:px-6">
@@ -23,7 +27,7 @@ export default async function WatchlistPage({
         title="Watchlist"
         lede="Places you're watching, and the alerts they've triggered."
       />
-      <WatchlistClient initialTab={initialTab} />
+      <WatchlistClient initialTab={initialTab} signedIn={userId !== null} />
     </div>
   );
 }

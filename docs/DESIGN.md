@@ -52,7 +52,7 @@ A **calm financial-planning product**, not a property classifieds portal. Spacio
 
 - Desktop: docked right panel. Mobile: full-screen sheet. Chat never covers the map entirely.
 - **Citations inside answers**, always — every project fact in an AI response links to its record. No uncited claims, ever.
-- Show the interpreted constraints ("You said: 4-room, ≤ S$550k, ≤ 4 years") as editable chips — the user can correct the machine.
+- Show the interpreted constraints ("You said: 4-room, ≤ S$550k, ≤ 4 years") as chips — the user can correct the machine. **MVP form:** chips are read-only displays; correction happens naturally by replying in chat (the re-extracted constraints replace the chips). Inline chip editing is the V1.x upgrade.
 - When data is missing or stale, the AI says so plainly. Confidence is a feature.
 
 ## Accessibility floor
