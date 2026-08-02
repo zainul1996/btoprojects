@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
+import { CompareTrayProvider } from "@/components/compare-tray";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { SiteHeader } from "@/components/shell/site-header";
@@ -34,9 +35,11 @@ export default function RootLayout({
         <ClerkProvider>
           <ConvexClientProvider>
             <TooltipProvider>
-              <SiteHeader />
-              <main className="min-h-svh">{children}</main>
-              <SiteFooter />
+              <CompareTrayProvider>
+                <SiteHeader />
+                <main className="min-h-svh">{children}</main>
+                <SiteFooter />
+              </CompareTrayProvider>
             </TooltipProvider>
             <Toaster />
           </ConvexClientProvider>
