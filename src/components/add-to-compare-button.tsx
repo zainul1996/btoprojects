@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useCompare } from "@/components/compare-tray";
-import { COMPARE_MAX, prettifySlug } from "@/lib/compare";
+import { COMPARE_MAX } from "@/lib/compare";
 
 type AddToCompareButtonProps = {
   slug: string;

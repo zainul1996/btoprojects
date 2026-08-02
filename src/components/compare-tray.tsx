@@ -5,9 +5,8 @@ import {
   createContext,
   useCallback,
   useContext,
-  useEffect,
   useMemo,
-  useState,
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { ArrowLeftRight, X } from "lucide-react";
@@ -20,7 +19,59 @@ import {
   compareUrl,
   prettifySlug,
 } from "@/lib/compare";
-import { cn } from "@/lib/utils";
+
+/**
+ * Anonymous-friendly compare tray (guardrail: no auth wall). State lives in
+ * localStorage as an external store (useSyncExternalStore) — hydration-safe
+ * (server snapshot is always empty) and no setState-in-effect.
+ */
+const EMPTY: string[] = [];
+let cachedRaw: string | null = null;
+let cachedSlugs: string[] = EMPTY;
+const listeners = new Set<() => void>();
+
+function readSlugs(): string[] {
+  if (typeof window === "undefined") return EMPTY;
+  const raw = window.localStorage.getItem(COMPARE_STORAGE_KEY);
+  if (raw === cachedRaw) return cachedSlugs;
+  cachedRaw = raw;
+  if (!raw) {
+    cachedSlugs = EMPTY;
+    return cachedSlugs;
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    cachedSlugs = Array.isArray(parsed)
+      ? parsed
+          .filter((s): s is string => typeof s === "string")
+          .slice(0, COMPARE_MAX)
+      : EMPTY;
+  } catch {
+    cachedSlugs = EMPTY;
+  }
+  return cachedSlugs;
+}
+
+function writeSlugs(next: string[]): void {
+  window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(next));
+  cachedRaw = null; // force re-read
+  readSlugs();
+  for (const listener of listeners) listener();
+}
+
+function subscribe(callback: () => void): () => void {
+  listeners.add(callback);
+  const onStorage = (event: StorageEvent) => {
+    if (event.key === COMPARE_STORAGE_KEY) callback();
+  };
+  window.addEventListener("storage", onStorage);
+  return () => {
+    listeners.delete(callback);
+    window.removeEventListener("storage", onStorage);
+  };
+}
+
+const getServerSnapshot = (): string[] => EMPTY;
 
 type CompareContextValue = {
   slugs: string[];
@@ -33,58 +84,22 @@ type CompareContextValue = {
 
 const CompareContext = createContext<CompareContextValue | null>(null);
 
-/**
- * Anonymous-friendly compare tray (guardrail: no auth wall). State lives in
- * localStorage — syncing to accounts is a V1 concern.
- */
 export function CompareTrayProvider({ children }: { children: ReactNode }) {
-  const [slugs, setSlugs] = useState<string[]>([]);
-  const [hydrated, setHydrated] = useState(false);
+  const slugs = useSyncExternalStore(subscribe, readSlugs, getServerSnapshot);
 
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(COMPARE_STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as unknown;
-        if (Array.isArray(parsed)) {
-          setSlugs(parsed.filter((s): s is string => typeof s === "string").slice(0, COMPARE_MAX));
-        }
-      }
-    } catch {
-      // Corrupt storage — start fresh.
-    }
-    setHydrated(true);
+  const add = useCallback((slug: string) => {
+    const current = readSlugs();
+    if (current.includes(slug)) return true;
+    if (current.length >= COMPARE_MAX) return false;
+    writeSlugs([...current, slug]);
+    return true;
   }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    window.localStorage.setItem(COMPARE_STORAGE_KEY, JSON.stringify(slugs));
-  }, [slugs, hydrated]);
-
-  const add = useCallback(
-    (slug: string) => {
-      let ok = false;
-      setSlugs((current) => {
-        if (current.includes(slug)) {
-          ok = true;
-          return current;
-        }
-        if (current.length >= COMPARE_MAX) {
-          return current;
-        }
-        ok = true;
-        return [...current, slug];
-      });
-      return ok;
-    },
-    [],
-  );
 
   const remove = useCallback((slug: string) => {
-    setSlugs((current) => current.filter((s) => s !== slug));
+    writeSlugs(readSlugs().filter((s) => s !== slug));
   }, []);
 
-  const clear = useCallback(() => setSlugs([]), []);
+  const clear = useCallback(() => writeSlugs([]), []);
 
   const value = useMemo<CompareContextValue>(
     () => ({
@@ -115,7 +130,6 @@ export function useCompare(): CompareContextValue {
 function CompareTray() {
   const { slugs, remove, clear } = useCompare();
 
-  // Never render during SSR/first paint — localStorage is client-only.
   if (slugs.length === 0) return null;
 
   return (
@@ -151,7 +165,7 @@ function CompareTray() {
           size="sm"
           render={<Link href={compareUrl(slugs)} />}
           nativeButton={false}
-          className={cn("shrink-0 rounded-full")}
+          className="shrink-0 rounded-full"
           disabled={slugs.length < 2}
           onClick={() => {
             if (slugs.length < 2) toast("Add at least 2 projects to compare");

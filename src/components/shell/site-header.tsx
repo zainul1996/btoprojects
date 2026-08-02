@@ -1,10 +1,12 @@
 "use client"
 
 import { Show, SignInButton, UserButton } from "@clerk/nextjs"
-import { Menu } from "lucide-react"
+import { useQuery } from "convex/react"
+import { Bell, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 
+import { api } from "../../../convex/_generated/api"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -14,6 +16,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { useAuthedUser } from "@/components/watchlist/use-authed-user"
 import { cn } from "@/lib/utils"
 
 const NAV_ITEMS = [
@@ -37,6 +40,54 @@ function Wordmark() {
     >
       BTOProjects<span className="text-teal-deep">.sg</span>
     </Link>
+  )
+}
+
+/** Skipped until the users row exists (authed* throws before then). */
+function useUnreadAlerts(): number | undefined {
+  const ready = useAuthedUser()
+  return useQuery(api.alerts.unreadCount, ready ? {} : "skip")
+}
+
+function UnreadDot({ unread, className }: { unread: number | undefined; className?: string }) {
+  const label =
+    unread !== undefined && unread > 0
+      ? unread > 99
+        ? "99+"
+        : String(unread)
+      : null
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "tnum pointer-events-none flex h-4 min-w-4 items-center justify-center rounded-full bg-teal-deep px-1 text-[10px] leading-none font-semibold text-primary-foreground",
+        label === null && "invisible",
+        className
+      )}
+    >
+      {label ?? "0"}
+    </span>
+  )
+}
+
+function NotificationBell() {
+  const unread = useUnreadAlerts()
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      render={<Link href="/watchlist?tab=alerts" />}
+      nativeButton={false}
+      aria-label={
+        unread !== undefined && unread > 0
+          ? `Alerts, ${unread} unread`
+          : "Alerts"
+      }
+      className="relative"
+    >
+      <Bell />
+      <UnreadDot unread={unread} className="absolute -top-0.5 -right-0.5" />
+    </Button>
   )
 }
 
@@ -71,6 +122,9 @@ function SiteHeader() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Show when="signed-in">
+            <NotificationBell />
+          </Show>
           <Show when="signed-out">
             <SignInButton mode="modal">
               <Button variant="ghost" size="sm">

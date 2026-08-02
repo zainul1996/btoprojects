@@ -1,0 +1,106 @@
+/*
+ * Project map chrome. Markers and popups are plain DOM managed by MapLibre,
+ * so they can't use Tailwind utilities — brand tokens from globals.css only.
+ */
+
+/* Outer element is positioned by MapLibre via inline transform — the visual
+   dot lives on a child so hover/focus scaling isn't overwritten. */
+.bto-map-marker {
+  display: block;
+  padding: 6px; /* generous hit target, visual stays 14px */
+  margin: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 9999px;
+}
+
+.bto-map-marker__dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--teal-deep);
+  border: 2px solid var(--paper);
+  box-shadow: 0 1px 4px color-mix(in oklab, var(--navy) 45%, transparent);
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease;
+}
+
+.bto-map-marker:hover .bto-map-marker__dot,
+.bto-map-marker:focus-visible .bto-map-marker__dot,
+.bto-map-marker[data-focused="true"] .bto-map-marker__dot {
+  background: var(--navy);
+  transform: scale(1.35);
+}
+
+.bto-map-marker:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+.bto-map-marker[data-focused="true"] {
+  z-index: 1;
+}
+
+/* Popup — calm card on the warm surface, ink text, teal link. */
+.bto-map-popup .maplibregl-popup-content {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px color-mix(in oklab, var(--navy) 18%, transparent);
+  padding: 12px 14px;
+  font-family: var(--font-sans);
+}
+
+.bto-map-popup .maplibregl-popup-tip {
+  border-top-color: var(--surface);
+}
+
+.bto-map-popup .maplibregl-popup-close-button {
+  color: var(--muted-foreground);
+  font-size: 14px;
+  padding: 2px 8px;
+}
+
+.bto-map-popup .maplibregl-popup-close-button:hover {
+  color: var(--ink);
+  background: transparent;
+}
+
+.bto-map-popup__name {
+  margin: 0;
+  padding-right: 12px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.bto-map-popup__meta {
+  margin: 2px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+.bto-map-popup__link {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--teal-deep);
+  text-decoration: none;
+}
+
+.bto-map-popup__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+.bto-map-popup__link:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
