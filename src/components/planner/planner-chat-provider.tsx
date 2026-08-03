@@ -340,7 +340,11 @@ export function PlannerChatProvider({ children }: { children: ReactNode }) {
       userMessageId,
     };
     void rawSendMessage(
-      { text: text.trim(), messageId: userMessageId },
+      {
+        id: userMessageId,
+        role: "user",
+        parts: [{ type: "text", text: text.trim() }],
+      },
       { body: { priorConstraints: prior, requestGeneration: generation } },
     ).catch(() => {
       if (activeRequestRef.current?.generation === generation) {
