@@ -67,7 +67,7 @@ function sbfSuitBullets(details: ProjectDetails): string[] {
   const { project, town, flatTypes } = details;
   const townName = town?.name ?? project.region;
   const bullets = [
-    "Buyers who need keys soon: many balance flats are completed or nearing completion.",
+    "Buyers flexible on timing: completion and key collection vary by individual flat.",
     `Households set on ${townName}: you apply for the town pool, not a specific block.`,
   ];
   if (flatTypes.some((f) => f.type === "2-room Flexi")) {
@@ -78,7 +78,7 @@ function sbfSuitBullets(details: ProjectDetails): string[] {
   }
   if (bullets.length < 3) {
     bullets.push(
-      "Applicants weighing SBF against the next BTO: a shorter wait, from a fixed pool.",
+      "Applicants willing to assess each offered flat rather than compare one pool-wide wait.",
     );
   }
   return bullets.slice(0, 3);
@@ -87,7 +87,7 @@ function sbfSuitBullets(details: ProjectDetails): string[] {
 function sbfKeyCompromise(details: ProjectDetails): string {
   const { project, town } = details;
   const townName = town?.name ?? project.region;
-  return `No picking a block or stack: within the ${townName} pool, block, remaining lease and price vary per flat.`;
+  return `No picking a block or stack: within the ${townName} pool, block, remaining lease, price and completion timing vary per flat.`;
 }
 
 /** The one honest trade-off, picked by severity from the data. */

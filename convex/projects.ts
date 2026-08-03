@@ -95,10 +95,11 @@ export const list = query({
       if (region && project.region !== region) return false;
       if (
         maxWaitMonths !== undefined &&
-        // Announced projects carry 0 = "Timeline TBC"; unknown never
-        // satisfies an explicit wait ceiling.
-        (project.estimatedWaitMonths > maxWaitMonths ||
-          project.lifecycleStatus === "announced")
+        // SBF pools mix individual flats, and 0 means unknown elsewhere; neither
+        // can honestly satisfy an explicit wait ceiling.
+        ((project.saleType ?? "bto") === "sbf" ||
+          project.estimatedWaitMonths <= 0 ||
+          project.estimatedWaitMonths > maxWaitMonths)
       )
         return false;
       if (flatType && !flatTypes.some((f) => f.type === flatType))

@@ -72,7 +72,7 @@ export interface ToolProjectSummary {
 
 /** Model-facing explainer attached to any tool result containing SBF rows. */
 const SBF_RESULT_NOTE =
-  "SBF rows (saleType \"sbf\") are Sale of Balance Flats pools, sold by town and flat type; many flats are completed or near completion, so waits are short. Prices are null because SBF prices are only published at launch: never quote, estimate, or invent one. Unit counts are supply; per-flat-type applicant counts (from getProjectDetail) are demand.";
+  "SBF rows (saleType \"sbf\") are Sale of Balance Flats pools, sold by town and flat type. Wait and completion timing vary by individual flat, so they are not directly comparable with one BTO wait. Prices are null because SBF prices are only published at launch: never quote, estimate, or invent one. Unit counts are supply; per-flat-type applicant counts (from getProjectDetail) are demand.";
 
 function summarizeProject(
   project: Doc<"projects">,
@@ -112,8 +112,14 @@ function summarizeProject(
               minPrice: f.minPrice,
               maxPrice: f.maxPrice,
             })),
-    estimatedWaitMonths: announced ? null : project.estimatedWaitMonths,
-    estimatedCompletion: announced ? null : project.estimatedCompletion,
+    estimatedWaitMonths:
+      announced || project.saleType === "sbf"
+        ? null
+        : project.estimatedWaitMonths,
+    estimatedCompletion:
+      announced || project.saleType === "sbf"
+        ? null
+        : project.estimatedCompletion,
     applicationDeadline: project.applicationDeadline ?? null,
     nearestMrt: project.nearestMrt,
   };

@@ -77,12 +77,11 @@ function fromPriceOf(summary: ProjectSummary): number | null {
   return min > 0 ? min : null;
 }
 
-/** Wait-sort key: 0 means "TBC" for announced projects (sort last) but a
- *  genuinely short wait for SBF pools, where flats exist already. */
+/** Unknown and mixed waits sort last; 0 is never a comparable duration. */
 function waitSortKeyOf(summary: ProjectSummary): number {
+  if (summary.project.saleType === "sbf") return Infinity;
   const wait = summary.project.estimatedWaitMonths;
-  if (wait > 0) return wait;
-  return summary.project.saleType === "sbf" ? 0 : Infinity;
+  return wait > 0 ? wait : Infinity;
 }
 
 function resultCountLabel(items: ProjectSummary[]): string {

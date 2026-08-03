@@ -153,10 +153,10 @@ export function ProjectCard({
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Clock3 className="size-3.5" aria-hidden />
-                {project.estimatedWaitMonths > 0
-                  ? `~${project.estimatedWaitMonths} mo wait`
-                  : isSbf
-                    ? "Shorter wait; many completed"
+                {isSbf
+                  ? "Wait varies by flat"
+                  : project.estimatedWaitMonths > 0
+                    ? `~${project.estimatedWaitMonths} mo wait`
                     : "Timeline TBC"}
               </span>
               {project.nearestMrt.length > 0 && (

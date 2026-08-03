@@ -123,13 +123,15 @@ const GROUPS: RowGroup[] = [
       {
         key: "wait",
         label: "Estimated wait",
-        // 0 means "timeline TBC" (announced) — exclude from best-cell scoring.
-        metric: (s) => s.project.estimatedWaitMonths || null,
+        // SBF pools mix individual flats, so their waits are not directly
+        // comparable even if a legacy aggregate value exists.
+        metric: (s) =>
+          s.project.saleType === "sbf"
+            ? null
+            : s.project.estimatedWaitMonths || null,
         cell: (s) => {
           if (s.project.saleType === "sbf") {
-            // Pool semantics: 0-month wait is not "TBC" here; many balance
-            // flats are completed or near completion.
-            return <span>Short; many completed</span>;
+            return <span className="text-muted-foreground">Varies by flat</span>;
           }
           const months = s.project.estimatedWaitMonths;
           if (months <= 0) {
@@ -245,8 +247,13 @@ function computeGiveUps(projects: ProjectSummary[]): Map<string, string[]> {
   if (projects.length < 2) return result;
 
   const metrics: { label: string; value: (s: ProjectSummary) => number | null }[] = [
-    // 0-month wait is "TBC" (announced), never a real trade-off input.
-    { label: "The wait", value: (s) => s.project.estimatedWaitMonths || null },
+    {
+      label: "The wait",
+      value: (s) =>
+        s.project.saleType === "sbf"
+          ? null
+          : s.project.estimatedWaitMonths || null,
+    },
     { label: "The price premium", value: fromPriceOf },
     { label: "The walk to the MRT", value: mrtWalkOf },
   ];
@@ -395,8 +402,9 @@ export function CompareWorkspace({
               className="mb-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
             >
               SBF prices vary by individual flat and are not held in our data,
-              so direct price comparison with BTO is unavailable. Missing
-              prices are excluded from highlights and trade-off analysis.
+              and waits also vary by flat. Price and wait are therefore not
+              directly comparable with BTO and are excluded from highlights
+              and trade-off analysis.
             </p>
           )}
           <CompareTable projects={found} onRemove={removeSlug} />

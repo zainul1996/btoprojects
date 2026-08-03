@@ -86,7 +86,7 @@ function WatchButtonAuthed({ targetType, targetId, label, size = "sm", className
       } else {
         await addWatch({ targetType, targetId, label });
         toast(`Watching ${label}`, {
-          description: "You'll be alerted here and on Telegram when official details change.",
+          description: "You'll see an in-app alert when official details change.",
         });
       }
     } catch {

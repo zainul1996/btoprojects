@@ -82,8 +82,7 @@ export const notifyProjectUpdate = internalMutation({
   },
 });
 
-/** W5-6 acceptance surrogate: lets a signed-in user verify end-to-end
- *  in-app + telegram delivery on demand. */
+/** Lets a signed-in user verify the in-app alert loop on demand. */
 export const sendMeTestAlert = authedMutation({
   args: {},
   returns: v.object({ alertId: v.id("alerts") }),
@@ -92,15 +91,10 @@ export const sendMeTestAlert = authedMutation({
       userId: ctx.user._id,
       kind: "test",
       title: "Test alert from BTOProjects.sg",
-      body: "Your alert pipeline is wired up — you will see project updates here and on Telegram.",
+      body: "Your in-app alerts are working — official project updates will appear here.",
       read: false,
       deliveredVia: ["inapp"],
       createdAt: Date.now(),
-    });
-    await ctx.scheduler.runAfter(0, internal.telegram.deliverTelegramBatch, {
-      deliveries: [{ alertId, userId: ctx.user._id }],
-      title: "Test alert from BTOProjects.sg",
-      body: "Your alert pipeline is wired up — you will see project updates here and on Telegram.",
     });
     return { alertId };
   },

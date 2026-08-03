@@ -164,8 +164,8 @@ export function PlannerChat({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const appliedPromptRef = useRef<string | undefined>(undefined);
 
-  // Context links suggest a starting point without submitting it. Restored
-  // drafts and conversations always win over a URL-provided suggestion.
+  // Context links suggest a starting point without submitting it. A clean
+  // composer can be prefilled; restored drafts and conversations are kept.
   useEffect(() => {
     if (
       !hydrated ||
@@ -258,6 +258,17 @@ export function PlannerChat({
     textareaRef.current?.focus();
   };
 
+  const useSuggestedPrompt = () => {
+    if (!suggestedPrompt) return;
+    setInput((current) => {
+      if (current.includes(suggestedPrompt)) return current;
+      return current.trim().length > 0
+        ? `${current.trimEnd()}\n\n${suggestedPrompt}`
+        : suggestedPrompt;
+    });
+    textareaRef.current?.focus();
+  };
+
   const lastMessage = messages[messages.length - 1];
   const lastAssistantHasText =
     lastMessage?.role === "assistant" && textOf(lastMessage).trim().length > 0;
@@ -294,27 +305,43 @@ export function PlannerChat({
             ref={contentRef}
             className="mx-auto w-full max-w-3xl px-4 pb-8 md:px-6"
           >
+            {hydrated && suggestedPrompt ? (
+              <Card size="sm" className="mt-4 mb-4 bg-teal-subtle/30">
+                <CardContent>
+                  <p className="text-xs font-medium text-teal-deeper">
+                    From the project you were viewing
+                  </p>
+                  <p className="mt-1 text-sm text-ink">{suggestedPrompt}</p>
+                  {input.includes(suggestedPrompt) ? (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      The prompt is in the message box for you to edit. Nothing
+                      has been sent.
+                    </p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={useSuggestedPrompt}
+                      >
+                        {input.trim().length > 0
+                          ? "Add prompt to draft"
+                          : "Use this prompt"}
+                      </Button>
+                      <span className="text-xs text-muted-foreground">
+                        Nothing will be sent automatically.
+                      </span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ) : null}
             {!hydrated ? null : messages.length === 0 ? (
               <div>
                 <PageHeader
                   title="The planner"
                   lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
                 />
-                {suggestedPrompt &&
-                (input.trim().length === 0 || input === suggestedPrompt) ? (
-                  <Card size="sm" className="mb-4 bg-teal-subtle/30">
-                    <CardContent>
-                      <p className="text-xs font-medium text-teal-deeper">
-                        Suggested starting point
-                      </p>
-                      <p className="mt-1 text-sm text-ink">{suggestedPrompt}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        It&apos;s in the message box for you to edit. Nothing
-                        has been sent.
-                      </p>
-                    </CardContent>
-                  </Card>
-                ) : null}
                 <div className="flex flex-col gap-2">
                   {EXAMPLE_PROMPTS.map((prompt) => (
                     <button

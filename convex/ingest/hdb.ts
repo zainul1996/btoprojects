@@ -581,7 +581,7 @@ export const upsertExercise = internalMutation({
         status?: "open" | "closed";
         isEstimate?: false;
       } = {};
-      if (existing.isEstimate === true) {
+      if (existing.isEstimate !== false) {
         patch.isEstimate = false;
       }
       if (!existing.applicationEnd && args.applicationEnd) {
@@ -1031,7 +1031,7 @@ export const run = internalAction({
                 title: `SBF balance flats in ${town.name}`,
                 body:
                   `${totalUnitsLine(project)} balance flats in ${town.name} were offered in the ${exercise.label} exercise. ` +
-                  `SBF flats often mean much shorter waits than BTO. Check the pool before the window closes.`,
+                  `Wait and completion timing vary by individual flat. Check the pool before the window closes.`,
               });
             }
 

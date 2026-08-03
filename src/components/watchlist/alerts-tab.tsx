@@ -1,8 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useMutation, usePaginatedQuery, useQuery } from "convex/react";
-import { BellRing, Inbox, Send } from "lucide-react";
+import { BellRing, Inbox } from "lucide-react";
 import { toast } from "sonner";
 import type { FunctionReturnType } from "convex/server";
 
@@ -27,7 +28,6 @@ const KIND_LABELS: Record<Alert["kind"], string> = {
 
 const VIA_META: Record<string, { icon: typeof BellRing; label: string }> = {
   inapp: { icon: BellRing, label: "Delivered in app" },
-  telegram: { icon: Send, label: "Delivered on Telegram" },
 };
 
 export function AlertsTab({ ready }: { ready: boolean }) {
@@ -102,21 +102,12 @@ export function AlertsTab({ ready }: { ready: boolean }) {
         />
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-          {results.map((alert) => (
-            <li key={alert._id}>
-              <button
-                type="button"
-                onClick={() => openAlert(alert)}
-                aria-label={
-                  alert.read ? alert.title : `Unread alert: ${alert.title}`
-                }
-                className={cn(
-                  "block w-full border-l-2 px-4 py-3.5 text-left transition-colors",
-                  alert.read
-                    ? "border-transparent"
-                    : "border-teal bg-teal-subtle/30 hover:bg-teal-subtle/50",
-                )}
-              >
+          {results.map((alert) => {
+            const href = alert.projectSlug
+              ? `/projects/${alert.projectSlug}`
+              : null;
+            const content = (
+              <>
                 <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
                   <span
                     className={cn(
@@ -154,9 +145,47 @@ export function AlertsTab({ ready }: { ready: boolean }) {
                 >
                   {alert.body}
                 </p>
-              </button>
-            </li>
-          ))}
+                {href ? (
+                  <p className="mt-2 text-xs font-medium text-teal-deep">
+                    View affected project
+                  </p>
+                ) : null}
+              </>
+            );
+            const className = cn(
+              "block w-full border-l-2 px-4 py-3.5 text-left transition-colors",
+              alert.read
+                ? "border-transparent hover:bg-muted/40"
+                : "border-teal bg-teal-subtle/30 hover:bg-teal-subtle/50",
+            );
+            const ariaLabel = alert.read
+              ? alert.title
+              : `Unread alert: ${alert.title}`;
+
+            return (
+              <li key={alert._id}>
+                {href ? (
+                  <Link
+                    href={href}
+                    onClick={() => openAlert(alert)}
+                    aria-label={`${ariaLabel}. View affected project`}
+                    className={className}
+                  >
+                    {content}
+                  </Link>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => openAlert(alert)}
+                    aria-label={ariaLabel}
+                    className={className}
+                  >
+                    {content}
+                  </button>
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -176,7 +205,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
   );
 }
 
-/** W5–6 acceptance surrogate: proves the in-app + Telegram loop on demand. */
+/** Creates a safe in-app sample without requiring an external channel. */
 function TestAlertCard() {
   const sendTest = useMutation(api.alertsEngine.sendMeTestAlert);
   const [sending, setSending] = useState(false);
@@ -185,7 +214,7 @@ function TestAlertCard() {
     setSending(true);
     try {
       await sendTest({});
-      toast("Alert created. Check this tab and Telegram.");
+      toast("In-app alert created. Check this tab.");
     } catch {
       toast.error("Couldn't send a test alert. Please try again.");
     } finally {
@@ -199,7 +228,7 @@ function TestAlertCard() {
         <div>
           <p className="text-sm font-medium text-ink">See how alerts work</p>
           <p className="mt-0.5 text-xs text-muted-foreground">
-            Sends a test alert to this inbox and your Telegram.
+            Creates a test alert in this inbox.
           </p>
         </div>
         <Button

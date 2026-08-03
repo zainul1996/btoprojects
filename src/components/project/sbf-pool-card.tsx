@@ -79,7 +79,7 @@ export function SbfPoolCard({
           <span className="tnum font-medium text-ink">
             {formatCount(project.totalUnits)}
           </span>{" "}
-          units · Short waits; many completed
+          units · Wait varies by flat
         </p>
 
         <div className="pointer-events-auto mt-auto flex items-center justify-end gap-1 border-t border-border/60 pt-3">

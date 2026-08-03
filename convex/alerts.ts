@@ -1,21 +1,50 @@
 import { v } from "convex/values";
-import { paginationOptsValidator } from "convex/server";
+import {
+  paginationOptsValidator,
+  paginationResultValidator,
+} from "convex/server";
 import { authedMutation, authedQuery } from "./lib/auth";
-import { alertValidator } from "./lib/validators";
+
+const alertListItemValidator = v.object({
+  _id: v.id("alerts"),
+  _creationTime: v.number(),
+  userId: v.id("users"),
+  kind: v.union(
+    v.literal("project_update"),
+    v.literal("new_launch"),
+    v.literal("exercise_open"),
+    v.literal("system"),
+    v.literal("test"),
+  ),
+  title: v.string(),
+  body: v.string(),
+  projectId: v.optional(v.id("projects")),
+  projectSlug: v.optional(v.string()),
+  read: v.boolean(),
+  deliveredVia: v.array(v.string()),
+  createdAt: v.number(),
+});
 
 export const listMine = authedQuery({
   args: { paginationOpts: paginationOptsValidator },
-  returns: v.object({
-    page: v.array(alertValidator),
-    continueCursor: v.union(v.string(), v.null()),
-    isDone: v.boolean(),
-  }),
+  returns: paginationResultValidator(alertListItemValidator),
   handler: async (ctx, args) => {
-    return await ctx.db
+    const result = await ctx.db
       .query("alerts")
       .withIndex("by_user", (q) => q.eq("userId", ctx.user._id))
       .order("desc")
       .paginate(args.paginationOpts);
+    const page = await Promise.all(
+      result.page.map(async (alert) => {
+        if (!alert.projectId) return { ...alert, projectSlug: undefined };
+        const project = await ctx.db.get("projects", alert.projectId);
+        return {
+          ...alert,
+          projectSlug: project?.slug,
+        };
+      }),
+    );
+    return { ...result, page };
   },
 });
 

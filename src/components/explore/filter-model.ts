@@ -65,6 +65,20 @@ export function applicationStatusOf(
   return "closed";
 }
 
+export function effectiveExerciseStatus(
+  exercise: {
+    status: ApplicationStatus;
+    applicationEnd?: string;
+  },
+  today: string,
+): ApplicationStatus {
+  return exercise.status === "open" &&
+    exercise.applicationEnd !== undefined &&
+    exercise.applicationEnd < today
+    ? "closed"
+    : exercise.status;
+}
+
 export const PRICE_MIN = 150_000;
 export const PRICE_MAX = 1_000_000;
 export const PRICE_STEP = 10_000;
@@ -185,7 +199,7 @@ export function serializeExplorerParams(filters: ExplorerFilters): string {
   if (filters.flat) sp.set("flat", filters.flat);
   if (filters.maxPrice !== undefined) sp.set("price", String(filters.maxPrice));
   if (filters.maxWait !== undefined) sp.set("wait", String(filters.maxWait));
-  sp.set("view", filters.view);
+  if (filters.view !== "map") sp.set("view", filters.view);
   if (filters.sort !== "price") sp.set("sort", filters.sort);
   return sp.toString();
 }

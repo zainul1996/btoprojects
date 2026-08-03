@@ -2,6 +2,10 @@ import Link from "next/link";
 import type { FunctionReturnType } from "convex/server";
 
 import { api } from "../../../convex/_generated/api";
+import {
+  effectiveExerciseStatus,
+  todayIso,
+} from "@/components/explore/filter-model";
 import { ProjectCard, type ProjectSummary } from "@/components/project-card";
 import { exerciseStatusLabel } from "@/components/project/utils";
 import { Badge } from "@/components/ui/badge";
@@ -48,11 +52,13 @@ export function ExerciseResults({
     }))
     .filter(({ projects }) => projects.length > 0)
     .sort((a, b) => b.exercise.key.localeCompare(a.exercise.key));
+  const today = todayIso();
 
   return (
     <div className="mx-auto w-full max-w-6xl divide-y divide-border px-4 pb-10 md:px-6">
       {sections.map(({ exercise, projects }) => {
         const isSbf = exercise.type === "sbf";
+        const effectiveStatus = effectiveExerciseStatus(exercise, today);
         return (
           <section
             key={exercise._id}
@@ -71,9 +77,9 @@ export function ExerciseResults({
               </div>
               <div className="flex items-center gap-3">
                 <Badge
-                  variant={exercise.status === "open" ? "default" : "secondary"}
+                  variant={effectiveStatus === "open" ? "default" : "secondary"}
                 >
-                  {exerciseStatusLabel(exercise.status)}
+                  {exerciseStatusLabel(effectiveStatus)}
                 </Badge>
                 <Link
                   href={`/${isSbf ? "sbf" : "bto"}/${exercise.key}`}
