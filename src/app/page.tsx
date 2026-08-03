@@ -1,147 +1,172 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchQuery } from "convex/nextjs";
-import { Bell, History, ListChecks } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  Bot,
+  CalendarDays,
+  Map,
+  Scale,
+} from "lucide-react";
 
-import { api } from "../../convex/_generated/api";
-import { ProjectCard } from "@/components/project-card";
 import { Section } from "@/components/section";
 import { SourceBadge } from "@/components/source-badge";
 import { Button } from "@/components/ui/button";
-
-// Launch data changes between deploys — fetch fresh per request.
-export const dynamic = "force-dynamic";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "BTOProjects.sg — Plan your HDB home with confidence",
   description:
-    "Every BTO project, structured and cited. Explore, compare and follow the places you care about.",
+    "Plan around your budget and timeline, explore BTO projects and SBF town pools, and follow official HDB launch updates.",
 };
 
-const FEATURES = [
+const HOME_TYPES = [
   {
-    icon: ListChecks,
-    title: "Personalised shortlist",
-    line: "Tell the planner your budget and timeline; get a ranked shortlist with reasons and sources.",
+    title: "Build-To-Order (BTO)",
+    description:
+      "Named projects launched with a location, flat mix and expected waiting time.",
   },
   {
-    icon: Bell,
-    title: "Follow any place",
-    line: "Watch a project, town or MRT station and get alerted when official details change.",
-  },
-  {
-    icon: History,
-    title: "Lifecycle record",
-    line: "Every project keeps a dated history, from announcement to launch, construction and MOP.",
+    title: "Sale of Balance Flats (SBF)",
+    description:
+      "Balance flats offered in town pools. Flat types, locations and completion stages can vary within each pool.",
   },
 ] as const;
 
-export default async function HomePage() {
-  const exercises = await fetchQuery(api.exercises.list, {});
-  const latest = [...exercises].sort((a, b) =>
-    b.exercise.key.localeCompare(a.exercise.key),
-  )[0];
-  const latestProjects = latest
-    ? await fetchQuery(api.projects.listByExercise, {
-        exerciseKey: latest.exercise.key,
-      })
-    : [];
-
+export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
-      {/* Hero — one idea, one primary action */}
-      <section className="px-4 pt-16 pb-12 md:px-6 md:pt-24 md:pb-16">
-        <p className="text-sm font-medium text-teal-deep">
-          Singapore BTO, organised
-        </p>
-        <h1 className="mt-3 max-w-2xl">Plan your HDB home with confidence</h1>
-        <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-          Every BTO project, structured and cited. Explore, compare and follow
-          the places you care about.
-        </p>
-        <div className="mt-8 flex flex-wrap items-center gap-3">
-          <Button
-            size="lg"
-            render={<Link href="/explore" />}
-            nativeButton={false}
-          >
-            Explore projects
-          </Button>
-          <Button
-            size="lg"
-            variant="ghost"
-            render={<Link href="/planner" />}
-            nativeButton={false}
-          >
-            Try the planner
-          </Button>
+      <section className="grid items-center gap-8 px-4 pt-10 pb-10 md:grid-cols-[minmax(0,1fr)_minmax(20rem,0.72fr)] md:gap-12 md:px-6 md:pt-20 md:pb-16">
+        <div>
+          <p className="text-sm font-medium text-teal-deep">
+            BTO and SBF decision support
+          </p>
+          <h1 className="mt-3 max-w-2xl">
+            Find an HDB home that fits your plans
+          </h1>
+          <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
+            Work from your budget, timeline and preferred towns. See the
+            trade-offs clearly before building a shortlist.
+          </p>
         </div>
+
+        <Card className="gap-0 py-0">
+          <CardHeader className="p-5 pb-3 md:p-6 md:pb-3">
+            <div className="mb-2 grid size-10 place-items-center rounded-lg bg-teal-subtle text-teal-deeper">
+              <Bot className="size-5" aria-hidden />
+            </div>
+            <h2 className="font-heading text-lg leading-snug font-semibold">
+              Start with your needs
+            </h2>
+            <CardDescription>
+              Get a ranked shortlist based on what matters to your household.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3 p-5 pt-2 md:p-6 md:pt-2">
+            <Button
+              size="lg"
+              className="w-full"
+              render={<Link href="/planner" />}
+              nativeButton={false}
+            >
+              Plan with AI
+              <ArrowRight aria-hidden />
+            </Button>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button
+                size="lg"
+                variant="outline"
+                className="w-full"
+                render={<Link href="/explore" />}
+                nativeButton={false}
+              >
+                <Map aria-hidden />
+                Explore the map
+              </Button>
+              <Button
+                size="lg"
+                variant="ghost"
+                className="w-full"
+                render={<Link href="/upcoming" />}
+                nativeButton={false}
+              >
+                <CalendarDays aria-hidden />
+                View launch calendar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </section>
 
-      {/* Signature features — one line each */}
-      <section className="border-t border-border px-4 py-10 md:px-6 md:py-14">
-        <div className="grid gap-8 sm:grid-cols-3">
-          {FEATURES.map((feature) => (
-            <div key={feature.title} className="flex gap-3.5">
-              <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-teal-subtle text-teal-deeper">
-                <feature.icon className="size-5" aria-hidden />
+      <Section
+        title="Understand what you can apply for"
+        description="Explore both HDB sales routes without treating unlike options as identical."
+        className="border-t border-border px-4 md:px-6"
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          {HOME_TYPES.map((type) => (
+            <Card key={type.title} size="sm">
+              <CardHeader>
+                <h3 className="font-heading text-sm leading-snug font-medium">
+                  {type.title}
+                </h3>
+                <CardDescription>{type.description}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+      </Section>
+
+      <Section className="px-4 md:px-6">
+        <Card className="gap-0 bg-muted/50 py-0">
+          <CardContent className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
+            <div className="flex gap-3.5">
+              <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-background text-navy ring-1 ring-foreground/10">
+                <Scale className="size-5" aria-hidden />
               </div>
               <div>
-                <h2 className="text-base font-semibold text-ink">
-                  {feature.title}
+                <h2 className="text-lg font-semibold">
+                  Shortlist first, compare second
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {feature.line}
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  Select projects as you browse. The comparison tray keeps
+                  their key trade-offs together; save places to follow changes
+                  and receive alerts.
                 </p>
               </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Latest launch */}
-      {latest ? (
-        <Section className="px-4 md:px-6">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-teal-deep">
-                Latest launch
-              </p>
-              <h2>{latest.exercise.label}</h2>
-            </div>
-            <Link
-              href={`/bto/${latest.exercise.key}`}
-              className="text-sm font-medium hover:underline"
+            <Button
+              variant="outline"
+              render={<Link href="/watchlist" />}
+              nativeButton={false}
             >
-              View all{" "}
-              <span className="tnum">{latest.projectCount}</span> →
-            </Link>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {latestProjects.slice(0, 4).map((summary) => (
-              <ProjectCard key={summary.project.slug} summary={summary} />
-            ))}
-          </div>
-        </Section>
-      ) : null}
+              <Bell aria-hidden />
+              Saved &amp; alerts
+            </Button>
+          </CardContent>
+        </Card>
+      </Section>
 
-      {/* Trust strip */}
-      <section className="mt-6 border-t border-border bg-muted/50 md:mt-10">
+      <section className="mt-4 border-t border-border bg-muted/50">
         <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-6 md:flex-row md:items-center md:gap-6 md:px-6">
-          <p className="text-sm font-medium text-ink">
-            Facts are sourced, dated and labelled.
-          </p>
+          <div>
+            <p className="text-sm font-medium text-ink">
+              Facts are sourced, dated and labelled.
+            </p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Official records stay distinct from estimates and our analysis.
+            </p>
+          </div>
           <div className="flex flex-wrap items-center gap-2">
             <SourceBadge variant="official" />
             <SourceBadge variant="estimated" />
             <SourceBadge variant="analysis" />
           </div>
-          <Link
-            href="/upcoming"
-            className="text-sm font-medium hover:underline md:ml-auto"
-          >
-            See what&rsquo;s coming →
-          </Link>
         </div>
       </section>
     </div>

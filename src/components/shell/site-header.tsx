@@ -21,12 +21,10 @@ import { useAuthedUser } from "@/components/watchlist/use-authed-user"
 import { cn } from "@/lib/utils"
 
 const NAV_ITEMS = [
-  { href: "/explore", label: "Explore" },
-  { href: "/upcoming", label: "Upcoming" },
-  { href: "/projects", label: "Projects" },
-  { href: "/compare", label: "Compare" },
-  { href: "/planner", label: "Planner" },
-  { href: "/watchlist", label: "Watchlist" },
+  { href: "/explore", label: "Find projects" },
+  { href: "/upcoming", label: "Launch calendar" },
+  { href: "/planner", label: "AI Planner" },
+  { href: "/watchlist", label: "Saved & alerts" },
 ] as const
 
 function isActive(pathname: string, href: string): boolean {
@@ -101,34 +99,6 @@ function NotificationBell() {
       <Bell />
       <UnreadDot unread={unread} className="absolute -top-0.5 -right-0.5" />
     </Button>
-  )
-}
-
-function MobileAlertsLink() {
-  const pathname = usePathname()
-  const unread = useUnreadAlerts()
-  const active = isActive(pathname, "/watchlist")
-  return (
-    <SheetClose
-      render={
-        <Link
-          href="/watchlist?tab=alerts"
-          aria-current={active ? "page" : undefined}
-        />
-      }
-      className={cn(
-        "flex items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-        active
-          ? "bg-teal-subtle text-teal-deeper"
-          : "text-foreground hover:bg-muted"
-      )}
-    >
-      <span className="flex items-center gap-2">
-        <Bell className="size-4" aria-hidden />
-        Alerts
-      </span>
-      <UnreadDot unread={unread} />
-    </SheetClose>
   )
 }
 
@@ -221,9 +191,6 @@ function SiteHeader() {
                     </SheetClose>
                   )
                 })}
-                <Show when="signed-in">
-                  <MobileAlertsLink />
-                </Show>
               </nav>
             </SheetContent>
           </Sheet>
