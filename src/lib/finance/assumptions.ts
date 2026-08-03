@@ -80,32 +80,32 @@ export const FINANCE_ASSUMPTIONS_2026 = {
   },
   sources: [
     {
-      label: "HDB — Credit to finance a flat purchase",
+      label: "HDB: Credit to finance a flat purchase",
       url: "https://www.hdb.gov.sg/residential/buying-a-flat/working-out-your-flat-budget/credit-to-finance-a-flat-purchase",
       verifiedDate: "2026-08-03",
     },
     {
-      label: "HDB — Plan your finances",
+      label: "HDB: Plan your finances",
       url: "https://www.hdb.gov.sg/residential/buying-a-flat/buying-procedure-for-new-flats/timeline/plan-your-finances",
       verifiedDate: "2026-08-03",
     },
     {
-      label: "HDB — Housing loan from HDB",
+      label: "HDB: Housing loan from HDB",
       url: "https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/housing-loan/housing-loan-from-hdb",
       verifiedDate: "2026-08-03",
     },
     {
-      label: "HDB — Enhanced CPF Housing Grant",
+      label: "HDB: Enhanced CPF Housing Grant",
       url: "https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/couples-and-families/enhanced-cpf-housing-grant",
       verifiedDate: "2026-08-03",
     },
     {
-      label: "MAS — Calculating TDSR for property loans",
+      label: "MAS: Calculating TDSR for property loans",
       url: "https://www.mas.gov.sg/regulation/explainers/tdsr-for-property-loans/calculating-tdsr",
       verifiedDate: "2026-08-03",
     },
     {
-      label: "IRAS — Buyer's Stamp Duty",
+      label: "IRAS: Buyer's Stamp Duty",
       url: "https://www.iras.gov.sg/taxes/stamp-duty/for-property/buying-or-acquiring-property/buyer%27s-stamp-duty-(bsd)",
       verifiedDate: "2026-08-03",
     },

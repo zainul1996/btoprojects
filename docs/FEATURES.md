@@ -4,7 +4,7 @@ Single source of truth for implementation status. Update this file whenever work
 
 Statuses: `Not started` · `In progress` · `Blocked` · `In review` · `Done` · `Deferred`
 
-Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
+Last updated: 3 Aug 2026 (post-Cursor launch-readiness review)
 
 ## Phase 0 — Foundation
 
@@ -70,7 +70,7 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 | F4.2 | Transparent weighted ranking + breakdowns | Done | Deterministic 4-factor score; user-adjustable weights → V1 |
 | F4.3 | Cited AI answers ([slug] links only from cited set) | Done | Verified: all 5 narrations cited in round-trip test |
 | F4.4 | Planner surface | Done | Full-page chat (mobile + desktop); docked side-panel variant → later |
-| F4.5 | SEO hardening | Done | Canonicals, robots, resilient sitemap, WebSite/FAQ/AboutPage/CollectionPage/ItemPage/BreadcrumbList schema, dynamic project social previews, methodology and direct internal links |
+| F4.5 | SEO hardening | Done | Canonicals use the public Vercel origin; robots, resilient sitemap, WebSite/FAQ/AboutPage/CollectionPage/ItemPage/BreadcrumbList schema, dynamic project social previews, methodology and direct internal links |
 | F4.6 | Analytics (Vercel Web Analytics + events) | Not started | Post-local phase |
 | F4.7 | Backfill → 50–100 pages | In review | Currently: 12 BTO projects + 24 SBF pools + 27 towns + exercises + tools ≈ 70 indexable routes |
 | F4.8 | SBF platform-wide integration | In review | Feb 2026 SBF ingested (24 towns / 4,320 units / 80 rows, matches HDB press release); saleType spine, explore filter + area markers + badges, /sbf/[exercise] board, town sections, project-page variant, Expected-next-SBF card (Feb 2027), planner tools/prompts, town-watch alerts |
@@ -81,7 +81,7 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 |---|---|---|---|
 | V1.1 | Saved planning preferences + profile-based ranking | Done | Authenticated Preferences tab reuses userProfiles; empty planner conversations seed non-location constraints plus fixed place aliases. The server fetches coordinates directly from the authenticated profile for deterministic scoring; exact addresses never enter browser planner requests, AI prompts or planner memory |
 | V1.2 | Commute calculator (OneMap routing) | In progress | OneMap address confirmation and project-to-saved-place straight-line km shipped; routing ETAs and travel times remain deferred |
-| V1.3 | Affordability scenarios (CPF/grants modelling) | Not started | Indicative strip exists on project page |
+| V1.3 | Affordability scenarios (CPF/grants modelling) | Done | Transparent HDB and FI scenarios on published-price BTO pages, with versioned assumptions, source links and HFE caveats |
 | V1.4 | SBF unit-level listings + launch prices | Not started | Flat Portal listing API unexplored; press-release starting-price tables via secondary mirrors (P3) |
 | V1.5 | Public project change log | Not started | |
 
@@ -107,3 +107,4 @@ hour.
 | 2 Aug 2026 | Tracker created; F0.1–F0.2 done |
 | 2 Aug 2026 | **First autonomous multi-agent build complete** (8 agents: research → scaffold → design system → backend → explorer/pages/workspace → validation). Live local app: 12 real seeded projects w/ provenance, explorer+map, full blueprint pages, compare workspace, watchlist + in-app alert feed, grounded planner w/ citations, 696 real resale rows. All gates green; commits through d01c5f0 on main. Pending from validation: fixes (if any), sitemap/structured data, then docs sync. |
 | 3 Aug 2026 | SEO launch-readiness pass complete: consistent canonical metadata, production-aware robots, resilient sitemap with social images, structured data across public content families, visible source methodology, data.gov.sg licence attribution, direct internal links and project-specific Open Graph/Twitter images. Lint, typecheck, tests and production build pass. |
+| 3 Aug 2026 | Post-Cursor review updated the public canonical origin, added concise affordability methodology and official finance links, and aligned launch assets and documentation with the completed product. |

@@ -7,12 +7,13 @@ import { PageHeader } from "@/components/page-header";
 import { Section } from "@/components/section";
 import { SourceBadge } from "@/components/source-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { FINANCE_ASSUMPTIONS_2026 } from "@/lib/finance/assumptions";
 import { absoluteUrl, createPageMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Housing data and source methodology",
   description:
-    "How BTOProjects.sg uses HDB, data.gov.sg and OneMap information, labels estimates and keeps a source trail for Singapore housing decisions.",
+    "How BTOProjects.sg uses HDB, data.gov.sg and OneMap records, labels estimates and explains its Singapore housing affordability scenarios.",
   path: "/methodology",
 });
 
@@ -22,7 +23,9 @@ const methodologyJsonLd = {
   name: "BTOProjects.sg housing data and source methodology",
   url: absoluteUrl("/methodology"),
   description:
-    "Source, attribution and confidence-label policy for BTOProjects.sg.",
+    "Source, attribution, confidence-label and affordability-method policy for BTOProjects.sg.",
+  dateModified: FINANCE_ASSUMPTIONS_2026.effectiveDate,
+  inLanguage: "en-SG",
   isPartOf: { "@id": `${absoluteUrl("/")}#website` },
 };
 
@@ -48,6 +51,13 @@ const SOURCES = [
     use: "Singapore place and geocoding information used for location context. OneMap is not the displayed basemap.",
   },
 ] as const;
+
+const financeEffectiveDate = new Intl.DateTimeFormat("en-SG", {
+  day: "numeric",
+  month: "long",
+  year: "numeric",
+  timeZone: "Asia/Singapore",
+}).format(new Date(`${FINANCE_ASSUMPTIONS_2026.effectiveDate}T00:00:00+08:00`));
 
 export default function MethodologyPage() {
   return (
@@ -140,6 +150,51 @@ export default function MethodologyPage() {
             .
           </p>
         </div>
+      </Section>
+
+      <Section
+        title="How affordability scenarios work"
+        description="The figures help with early planning. They are not an eligibility decision, loan offer or financial advice."
+      >
+        <Card>
+          <CardContent className="space-y-4 p-5 md:p-6">
+            <div className="grid gap-4 text-sm text-muted-foreground md:grid-cols-2">
+              <p>
+                Project pages compare an HDB loan scenario with an illustrative
+                financial-institution loan scenario. Each calculation uses the
+                published project price and a versioned set of policy inputs.
+              </p>
+              <p>
+                The result can include estimated downpayment, monthly mortgage,
+                Buyer&apos;s Stamp Duty and an optional grant input. It does not
+                assess your household&apos;s eligibility or replace an HFE letter.
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Current assumptions are dated{" "}
+              <time dateTime={FINANCE_ASSUMPTIONS_2026.effectiveDate}>
+                {financeEffectiveDate}
+              </time>
+              . Check the official guidance before making a financing decision.
+            </p>
+            <ul className="grid gap-2 sm:grid-cols-2">
+              {FINANCE_ASSUMPTIONS_2026.sources.map((source) => (
+                <li key={source.url}>
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noopener"
+                    className="inline-flex items-center gap-1 text-sm font-medium text-teal-deep hover:underline"
+                  >
+                    {source.label}
+                    <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                    <span className="sr-only">(opens in a new tab)</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
       </Section>
 
       <Section title="What to verify before applying">

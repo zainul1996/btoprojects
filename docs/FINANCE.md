@@ -32,12 +32,12 @@ scenario output.
 
 ## Official sources
 
-- [HDB — Credit to finance a flat purchase](https://www.hdb.gov.sg/residential/buying-a-flat/working-out-your-flat-budget/credit-to-finance-a-flat-purchase)
-- [HDB — Plan your finances](https://www.hdb.gov.sg/residential/buying-a-flat/buying-procedure-for-new-flats/timeline/plan-your-finances)
-- [HDB — Housing loan from HDB](https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/housing-loan/housing-loan-from-hdb)
-- [HDB — Enhanced CPF Housing Grant](https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/couples-and-families/enhanced-cpf-housing-grant)
-- [MAS — Calculating TDSR for property loans](https://www.mas.gov.sg/regulation/explainers/tdsr-for-property-loans/calculating-tdsr)
-- [IRAS — Buyer's Stamp Duty](https://www.iras.gov.sg/taxes/stamp-duty/for-property/buying-or-acquiring-property/buyer%27s-stamp-duty-(bsd))
+- [HDB: Credit to finance a flat purchase](https://www.hdb.gov.sg/residential/buying-a-flat/working-out-your-flat-budget/credit-to-finance-a-flat-purchase)
+- [HDB: Plan your finances](https://www.hdb.gov.sg/residential/buying-a-flat/buying-procedure-for-new-flats/timeline/plan-your-finances)
+- [HDB: Housing loan from HDB](https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/housing-loan/housing-loan-from-hdb)
+- [HDB: Enhanced CPF Housing Grant](https://www.hdb.gov.sg/buying-a-flat/flat-grant-and-loan-eligibility/couples-and-families/enhanced-cpf-housing-grant)
+- [MAS: Calculating TDSR for property loans](https://www.mas.gov.sg/regulation/explainers/tdsr-for-property-loans/calculating-tdsr)
+- [IRAS: Buyer's Stamp Duty](https://www.iras.gov.sg/taxes/stamp-duty/for-property/buying-or-acquiring-property/buyer%27s-stamp-duty-(bsd))
 
 Users must rely on their HFE letter for assessed grants, loan amount and
 household eligibility.

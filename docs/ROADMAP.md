@@ -2,7 +2,7 @@
 
 Granular feature status lives in `FEATURES.md`. This file tracks phases, milestones and where we are right now.
 
-**Current status: MVP product and SEO hardening are complete. A Vercel production deployment exists but requires access, and btoprojects.sg does not resolve in DNS. Public launch remains blocked by hosting access and DNS.**
+**Current status: MVP product and SEO hardening are complete. The public site is available at btoprojects.vercel.app. The latest feature branch has a protected preview and still needs promotion to production after final validation. A custom domain is deferred.**
 Last updated: 3 Aug 2026
 
 ## Phase 0 — Setup (this week)
@@ -57,4 +57,4 @@ Guidance: avoid degrading trust or neutrality. See PRODUCT.md monetisation seque
 |---|---|
 | 2 Aug 2026 | Roadmap created from strategy PDF; Phase 0 started |
 | 2 Aug 2026 | First autonomous build complete: Phase 0 + MVP sprints W1–W8 (in-app alerts, seed-based HDB data per D-seed). Validation + hardening in progress |
-| 3 Aug 2026 | SEO hardening completed and validated. Public launch is waiting on Vercel access settings and DNS for btoprojects.sg. |
+| 3 Aug 2026 | Post-Cursor SEO review aligned canonicals with btoprojects.vercel.app, documented affordability sources and removed the custom-domain launch dependency. |

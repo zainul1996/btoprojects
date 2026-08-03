@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 export const SITE_NAME = "BTOProjects.sg";
-export const SITE_URL = "https://btoprojects.sg";
+export const SITE_URL = "https://btoprojects.vercel.app";
 export const SITE_DESCRIPTION =
   "Compare Singapore HDB BTO projects and SBF town pools with sourced facts, clear estimates and practical planning tools.";
 

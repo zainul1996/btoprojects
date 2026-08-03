@@ -57,6 +57,11 @@ const HOME_FAQS = [
     answer:
       "Facts from HDB, data.gov.sg and OneMap are labelled and linked to their source. Estimates and our analysis stay separate. BTOProjects.sg is independent and is not affiliated with HDB.",
   },
+  {
+    question: "Are the affordability figures an HDB eligibility result?",
+    answer:
+      "No. They are planning scenarios based on published HDB, MAS and IRAS rules. Your HFE letter and, where relevant, a financial institution determine your actual grant and loan eligibility.",
+  },
 ] as const;
 
 const homeFaqJsonLd = {
@@ -193,7 +198,7 @@ export default function HomePage() {
         description="A short guide to the sales routes and how we label housing information."
         className="border-t border-border px-4 md:px-6"
       >
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2">
           {HOME_FAQS.map((faq) => (
             <Card key={faq.question} size="sm">
               <CardHeader>
