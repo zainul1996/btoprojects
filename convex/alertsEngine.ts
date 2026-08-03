@@ -1,13 +1,22 @@
 import { v } from "convex/values";
-import { internalMutation, type MutationCtx } from "./_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+} from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { authedMutation } from "./lib/auth";
 
-/**
- * Alert fan-out: watchlist hits → in-app alerts → scheduled telegram batch.
- * Scheduler only ever runs internal* functions.
- */
+/** In-app-only delivery for the transactional alertEvents outbox. */
+
+interface DeliveryPageResult {
+  eventId: Id<"alertEvents"> | null;
+  phaseProcessed: "project" | "town" | null;
+  watchersProcessed: number;
+  alertsCreated: number;
+  eventDelivered: boolean;
+}
 
 async function createAlert(
   ctx: MutationCtx,
@@ -17,6 +26,7 @@ async function createAlert(
     title: string;
     body: string;
     projectId?: Id<"projects">;
+    alertEventId?: Id<"alertEvents">;
   },
 ): Promise<Id<"alerts">> {
   return await ctx.db.insert("alerts", {
@@ -25,60 +35,180 @@ async function createAlert(
     title: fields.title,
     body: fields.body,
     projectId: fields.projectId,
+    alertEventId: fields.alertEventId,
     read: false,
     deliveredVia: ["inapp"],
     createdAt: Date.now(),
   });
 }
 
-export const notifyProjectUpdate = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    title: v.string(),
-    body: v.string(),
-  },
-  returns: v.object({ notified: v.number() }),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get("projects", args.projectId);
-    if (!project) throw new Error("Project not found");
-    const town = await ctx.db.get("towns", project.townId);
+export const deliverPendingEvents = internalMutation({
+  args: { limit: v.number() },
+  returns: v.object({
+    eventId: v.union(v.id("alertEvents"), v.null()),
+    phaseProcessed: v.union(
+      v.literal("project"),
+      v.literal("town"),
+      v.null(),
+    ),
+    watchersProcessed: v.number(),
+    alertsCreated: v.number(),
+    eventDelivered: v.boolean(),
+  }),
+  handler: async (ctx, args): Promise<DeliveryPageResult> => {
+    const limit = Math.max(1, Math.min(50, Math.floor(args.limit)));
+    const event = await ctx.db
+      .query("alertEvents")
+      .withIndex("by_status_and_created", (q) => q.eq("status", "pending"))
+      .order("asc")
+      .first();
+    if (!event) {
+      return {
+        eventId: null,
+        phaseProcessed: null,
+        watchersProcessed: 0,
+        alertsCreated: 0,
+        eventDelivered: false,
+      };
+    }
 
-    // Watchers of this project OR of its town (watchlists store slugs/names).
-    const targets: [Doc<"watchlists">["targetType"], string][] = [
-      ["project", project.slug],
-      ...(town ? ([["town", town.name]] as [Doc<"watchlists">["targetType"], string][]) : []),
-    ];
-    const watcherUserIds = new Set<Id<"users">>();
-    for (const [targetType, targetId] of targets) {
-      const rows = await ctx.db
-        .query("watchlists")
-        .withIndex("by_target", (q) =>
-          q.eq("targetType", targetType).eq("targetId", targetId),
+    const project = await ctx.db.get("projects", event.projectId);
+    if (!project) {
+      const deliveryError = `Alert event project not found: ${event.projectId}`;
+      console.error(deliveryError);
+      await ctx.db.patch("alertEvents", event._id, {
+        status: "delivered",
+        deliveredAt: Date.now(),
+        deliveryCursor: undefined,
+        deliveryError,
+      });
+      return {
+        eventId: event._id,
+        phaseProcessed: event.deliveryPhase ?? "project",
+        watchersProcessed: 0,
+        alertsCreated: 0,
+        eventDelivered: true,
+      };
+    }
+    const phase: "project" | "town" = event.deliveryPhase ?? "project";
+    const town =
+      phase === "town" ? await ctx.db.get("towns", project.townId) : null;
+    if (phase === "town" && !town) {
+      const deliveryError = `Alert event town not found: ${project.townId}`;
+      console.error(deliveryError);
+      await ctx.db.patch("alertEvents", event._id, {
+        status: "delivered",
+        deliveredAt: Date.now(),
+        deliveryCursor: undefined,
+        deliveryError,
+      });
+      return {
+        eventId: event._id,
+        phaseProcessed: "town",
+        watchersProcessed: 0,
+        alertsCreated: 0,
+        eventDelivered: true,
+      };
+    }
+
+    const targetId = phase === "project" ? project.slug : town!.name;
+    const page = await ctx.db
+      .query("watchlists")
+      .withIndex("by_target", (q) =>
+        q.eq("targetType", phase).eq("targetId", targetId),
+      )
+      .paginate({
+        numItems: limit,
+        cursor: event.deliveryCursor ?? null,
+      });
+    let alertsCreated = 0;
+
+    for (const watch of page.page) {
+      const existingAlert = await ctx.db
+        .query("alerts")
+        .withIndex("by_event_and_user", (q) =>
+          q.eq("alertEventId", event._id).eq("userId", watch.userId),
         )
-        .collect();
-      for (const row of rows) watcherUserIds.add(row.userId);
+        .unique();
+      if (!existingAlert) {
+        await createAlert(ctx, {
+          userId: watch.userId,
+          kind: "project_update",
+          title: event.title,
+          body: event.body,
+          projectId: event.projectId,
+          alertEventId: event._id,
+        });
+        alertsCreated++;
+      }
     }
 
-    const deliveries: { alertId: Id<"alerts">; userId: Id<"users"> }[] = [];
-    for (const userId of watcherUserIds) {
-      const alertId = await createAlert(ctx, {
-        userId,
-        kind: "project_update",
-        title: args.title,
-        body: args.body,
-        projectId: args.projectId,
+    let eventDelivered = false;
+    if (!page.isDone) {
+      await ctx.db.patch("alertEvents", event._id, {
+        deliveryPhase: phase,
+        deliveryCursor: page.continueCursor,
       });
-      deliveries.push({ alertId, userId });
+    } else if (phase === "project") {
+      await ctx.db.patch("alertEvents", event._id, {
+        deliveryPhase: "town",
+        deliveryCursor: undefined,
+      });
+    } else {
+      await ctx.db.patch("alertEvents", event._id, {
+        status: "delivered",
+        deliveredAt: Date.now(),
+        deliveryPhase: "town",
+        deliveryCursor: undefined,
+      });
+      eventDelivered = true;
     }
 
-    if (deliveries.length > 0) {
-      await ctx.scheduler.runAfter(0, internal.telegram.deliverTelegramBatch, {
-        deliveries,
-        title: args.title,
-        body: args.body,
-      });
+    return {
+      eventId: event._id,
+      phaseProcessed: phase,
+      watchersProcessed: page.page.length,
+      alertsCreated,
+      eventDelivered,
+    };
+  },
+});
+
+const DELIVERY_PAGE_SIZE = 50;
+const MAX_PAGES_PER_WORKER = 10;
+const CONTINUATION_DELAY_MS = 1_000;
+
+/**
+ * Durable bounded drain worker. Each page commits independently through
+ * deliverPendingEvents; reaching the cap schedules another internal worker.
+ * Duplicate workers are safe because page progress and alert dedupe are
+ * transactional.
+ */
+export const drainPendingEvents = internalAction({
+  args: {},
+  returns: v.object({
+    pagesProcessed: v.number(),
+    continuationScheduled: v.boolean(),
+  }),
+  handler: async (ctx) => {
+    let pagesProcessed = 0;
+    for (let page = 0; page < MAX_PAGES_PER_WORKER; page++) {
+      const result = await ctx.runMutation(
+        internal.alertsEngine.deliverPendingEvents,
+        { limit: DELIVERY_PAGE_SIZE },
+      );
+      if (result.eventId === null) {
+        return { pagesProcessed, continuationScheduled: false };
+      }
+      pagesProcessed++;
     }
-    return { notified: deliveries.length };
+
+    await ctx.scheduler.runAfter(
+      CONTINUATION_DELAY_MS,
+      internal.alertsEngine.drainPendingEvents,
+      {},
+    );
+    return { pagesProcessed, continuationScheduled: true };
   },
 });
 

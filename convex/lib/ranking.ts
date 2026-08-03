@@ -1,4 +1,5 @@
 import { haversineKm } from "./geo";
+import { isSingaporeCoordinate } from "./profilePreferences";
 
 /**
  * Deterministic, LLM-free project ranking.
@@ -219,6 +220,10 @@ function scoreLocation(
   const { towns, regions, workplaces, parentsArea } = constraints;
   const reasons: string[] = [];
   let score: number | null = null;
+  const projectCoordinatesValid = isSingaporeCoordinate(
+    project.lat,
+    project.lng,
+  );
 
   if (towns?.length) {
     if (towns.some((t) => t.toLowerCase() === project.town.toLowerCase())) {
@@ -246,35 +251,84 @@ function scoreLocation(
 
   const workplacesWithCoords = (workplaces ?? []).filter(
     (w): w is { label: string; lat: number; lng: number } =>
-      w.lat !== undefined && w.lng !== undefined,
+      w.lat !== undefined &&
+      w.lng !== undefined &&
+      isSingaporeCoordinate(w.lat, w.lng),
   );
-  if (workplacesWithCoords.length > 0) {
-    const nearest = workplacesWithCoords.reduce((best, w) => {
-      const d = haversineKm(project.lat, project.lng, w.lat, w.lng);
-      return !best || d < best.distanceKm ? { workplace: w, distanceKm: d } : best;
-    }, null as { workplace: { label: string; lat: number; lng: number }; distanceKm: number } | null);
-    if (nearest) {
-      const commuteScore = clamp(100 - (nearest.distanceKm - 2) * 6, 20, 100);
-      const roundedKm = Math.round(nearest.distanceKm * 10) / 10;
-      reasons.push(
-        `≈${roundedKm}km straight-line to ${nearest.workplace.label} (commute estimate pending routing)`,
+  if (workplacesWithCoords.length > 0 && projectCoordinatesValid) {
+    const workplaceScores = workplacesWithCoords.map((workplace) => {
+      const distanceKm = haversineKm(
+        project.lat,
+        project.lng,
+        workplace.lat,
+        workplace.lng,
       );
-      score = Math.max(score ?? 0, Math.round(commuteScore));
-    }
+      reasons.push(
+        `≈${Math.round(distanceKm * 10) / 10}km straight-line to ${workplace.label} (not route distance or travel time)`,
+      );
+      return clamp(100 - (distanceKm - 2) * 6, 20, 100);
+    });
+    const commuteScore = Math.round(
+      workplaceScores.reduce((sum, value) => sum + value, 0) /
+        workplaceScores.length,
+    );
+    score = Math.max(score ?? 0, commuteScore);
+  }
+  const unresolvedWorkplaces = (workplaces ?? []).filter(
+    (place) => place.lat === undefined || place.lng === undefined,
+  );
+  if (unresolvedWorkplaces.length > 0) {
+    reasons.push(
+      `Distance is not available for ${unresolvedWorkplaces
+        .map((place) => place.label)
+        .join(", ")} until resolved in Preferences`,
+    );
   }
 
-  if (parentsArea?.lat !== undefined && parentsArea.lng !== undefined) {
+  if (
+    parentsArea?.lat !== undefined &&
+    parentsArea.lng !== undefined &&
+    isSingaporeCoordinate(parentsArea.lat, parentsArea.lng) &&
+    projectCoordinatesValid
+  ) {
     const d = haversineKm(project.lat, project.lng, parentsArea.lat, parentsArea.lng);
+    reasons.push(
+      `≈${Math.round(d * 10) / 10}km straight-line to parents' area (${parentsArea.label}); not route distance or travel time`,
+    );
     if (d <= 4) {
-      reasons.push(
-        `Within ~${Math.round(d * 10) / 10}km of parents' area (${parentsArea.label})`,
-      );
       score = Math.min(100, (score ?? 50) + 10);
+    }
+  } else if (parentsArea) {
+    reasons.push(
+      projectCoordinatesValid
+        ? `Distance is not available for ${parentsArea.label} until resolved in Preferences`
+        : `Personal distance is unavailable because this project's coordinates are not reliable`,
+    );
+  }
+
+  if (
+    !projectCoordinatesValid &&
+    (workplacesWithCoords.length > 0 || parentsArea)
+  ) {
+    if (
+      !reasons.some((reason) =>
+        reason.includes("project's coordinates are not reliable"),
+      )
+    ) {
+      reasons.push(
+        "Personal distance is unavailable because this project's coordinates are not reliable",
+      );
     }
   }
 
   if (score === null) {
-    return { score: 50, reasons: ["No location preference set — scored neutral"] };
+    return {
+      score: 50,
+      reasons:
+        reasons.length > 0
+          ? reasons
+          : ["No location preference set — scored neutral"],
+    };
   }
   return { score: clamp(score, 0, 100), reasons };
 }

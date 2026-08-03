@@ -36,9 +36,12 @@ export type PlannerSuggestion = {
 
 export type PlannerDataParts = {
   /** Transient progress signal while a reply is being prepared. */
-  phase: PlannerPhase;
+  phase: PlannerPhase & { generation: number };
   /** The machine's read of the user's situation (persisted, drives follow-ups). */
-  constraints: { constraints: NormalizedConstraints | null };
+  constraints: {
+    constraints: NormalizedConstraints | null;
+    generation: number;
+  };
   /** Deterministic matches for this turn (renders as cards after the text). */
   rankings: {
     rankings: RankingResultItem[];
@@ -50,7 +53,11 @@ export type PlannerDataParts = {
   /** Contextual follow-up chips rendered after an answer completes. */
   suggestions: { suggestions: PlannerSuggestion[] };
   /** Post-stream integrity correction: replace the answer's text. */
-  replaceText: { text: string; reason: "citation-check" };
+  replaceText: {
+    text: string;
+    reason: "citation-check";
+    generation: number;
+  };
 };
 
 export type PlannerUIMessage = UIMessage<unknown, PlannerDataParts, PlannerTools>;

@@ -21,7 +21,7 @@ Last updated: 3 Aug 2026
 |---|---|---|---|
 | W1–2 | Schema, source adapters, design system, 10 representative projects | Every field has provenance; mobile project page works | **Done** (2 Aug) — 12 projects, 228 facts, 17 tables, AA-verified design system |
 | W3–4 | Explorer, map, launch/town/project routes, search & filters | User finds a suitable project in < 2 minutes | **Done** (2 Aug) — explorer w/ map+URL filters, all route families SSR |
-| W5–6 | Comparison, auth, watchlists, ~~email~~ alerts | User saves area/project and receives a test change alert | **Done** (2 Aug) — compare workspace, Clerk, watchlists; **Telegram substituted for email per user**; test-alert loop verified live |
+| W5–6 | Comparison, auth, watchlists, in-app alerts | User saves a project/town and receives a test change alert | **Done** (2 Aug) — compare workspace, Clerk, watchlists and in-app test-alert loop |
 | W7–8 | Grounded planner, ranking rules, analytics, SEO hardening | Answers cite records; no uncited project facts | **Mostly done** (3 Aug): planner and SEO hardening complete; analytics remains pending |
 | W9–10 | Historical backfill, editorial QA, public launch | 50–100 high-quality permanent pages; parser monitoring live | Not started — backfill + Sentry + deploy are pre-launch, user drives timing |
 
@@ -56,5 +56,5 @@ Guidance: avoid degrading trust or neutrality. See PRODUCT.md monetisation seque
 | Date | Change |
 |---|---|
 | 2 Aug 2026 | Roadmap created from strategy PDF; Phase 0 started |
-| 2 Aug 2026 | First autonomous build complete: Phase 0 + MVP sprints W1–W8 (scope subs: Telegram for email, seed-based HDB data per D-seed). Validation + hardening in progress |
+| 2 Aug 2026 | First autonomous build complete: Phase 0 + MVP sprints W1–W8 (in-app alerts, seed-based HDB data per D-seed). Validation + hardening in progress |
 | 3 Aug 2026 | SEO hardening completed and validated. Public launch is waiting on Vercel access settings and DNS for btoprojects.sg. |

@@ -22,7 +22,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { WatchButton } from "@/components/watch-button";
 import {
   MAX_STORED_MESSAGES,
-  clearStoredChat,
   writeStoredChat,
 } from "@/lib/planner/chat-storage";
 import {
@@ -107,8 +106,10 @@ function constraintLabels(constraints: NonNullable<PlannerConstraints>): string[
 
 function InterpretedConstraints({
   constraints,
+  usingSavedPreferences,
 }: {
   constraints: NonNullable<PlannerConstraints>;
+  usingSavedPreferences: boolean;
 }) {
   const labels = constraintLabels(constraints);
   if (labels.length === 0) return null;
@@ -129,7 +130,19 @@ function InterpretedConstraints({
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        Reply with a correction to update these constraints.
+        {usingSavedPreferences ? (
+          <>
+            Using saved preferences ·{" "}
+            <Link
+              href="/watchlist?tab=preferences"
+              className="text-teal-deep hover:underline"
+            >
+              Edit
+            </Link>
+          </>
+        ) : (
+          "Reply with a correction to update these constraints."
+        )}
       </p>
     </aside>
   );
@@ -143,22 +156,21 @@ export function PlannerChat({
   const { slugs: traySlugs } = useCompare();
   const {
     messages,
-    setMessages,
-    sendMessage,
     status,
     stop,
-    regenerate,
     pending,
+    lifecycleBlocked,
     phase,
-    setPhase,
     constraints,
-    setConstraints,
     sessionId,
-    setSessionId,
     input,
     setInput,
     hydrated,
-    constraintsRef,
+    usingSavedPreferences,
+    storageOwner,
+    submitMessage,
+    retryMessage,
+    resetConversation,
   } = usePlannerChat();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -190,6 +202,7 @@ export function PlannerChat({
     const write = () => {
       lastPersistRef.current = Date.now();
       writeStoredChat({
+        owner: storageOwner,
         messages: messages.slice(-MAX_STORED_MESSAGES),
         constraints,
         sessionId,
@@ -204,7 +217,14 @@ export function PlannerChat({
     }
     const timer = setTimeout(write, PERSIST_INTERVAL_MS - elapsed);
     return () => clearTimeout(timer);
-  }, [messages, constraints, sessionId, input, hydrated]);
+  }, [
+    messages,
+    constraints,
+    sessionId,
+    input,
+    hydrated,
+    storageOwner,
+  ]);
 
   const reducedMotion = usePrefersReducedMotion();
   const wideComposer = useMediaQuery("(min-width: 640px)");
@@ -218,38 +238,14 @@ export function PlannerChat({
 
   const send = (raw: string) => {
     const text = raw.trim();
-    if (!text || pending) return;
+    if (!text || pending || lifecycleBlocked) return;
     setInput("");
     void scrollToBottom(reducedMotion ? "instant" : undefined);
-    void sendMessage(
-      { text },
-      { body: { priorConstraints: constraintsRef.current } },
-    );
+    submitMessage(text, constraints);
   };
 
-  // Clearing mid-stream waits for the stream to settle: stop() only aborts
-  // the request, and queued stream jobs can still push the partial assistant
-  // message after a synchronous setMessages([]).
-  const clearOnSettleRef = useRef(false);
-  useEffect(() => {
-    if (clearOnSettleRef.current && !pending) {
-      clearOnSettleRef.current = false;
-      setMessages([]);
-    }
-  }, [pending, setMessages]);
-
   const newChat = () => {
-    clearStoredChat();
-    setConstraints(null);
-    setSessionId(null);
-    setInput("");
-    setPhase(null);
-    if (pending) {
-      clearOnSettleRef.current = true;
-      void stop();
-    } else {
-      setMessages([]);
-    }
+    resetConversation();
     textareaRef.current?.focus();
   };
 
@@ -342,6 +338,21 @@ export function PlannerChat({
                   title="The planner"
                   lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
                 />
+                {usingSavedPreferences ? (
+                  <div
+                    role="note"
+                    className="mb-5 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-ink"
+                  >
+                    Saved budget and location aliases will shape ranking. Exact
+                    addresses stay private and are not sent to the AI provider.{" "}
+                    <Link
+                      href="/watchlist?tab=preferences"
+                      className="text-teal-deep hover:underline"
+                    >
+                      Edit preferences
+                    </Link>
+                  </div>
+                ) : null}
                 <div className="flex flex-col gap-2">
                   {EXAMPLE_PROMPTS.map((prompt) => (
                     <button
@@ -379,7 +390,10 @@ export function PlannerChat({
                 className="flex flex-col gap-6 pt-8"
               >
                 {constraints ? (
-                  <InterpretedConstraints constraints={constraints} />
+                  <InterpretedConstraints
+                    constraints={constraints}
+                    usingSavedPreferences={usingSavedPreferences}
+                  />
                 ) : null}
                 {messages.map((message, index) =>
                   message.role === "user" ? (
@@ -419,7 +433,7 @@ export function PlannerChat({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => void regenerate()}
+                      onClick={retryMessage}
                     >
                       Retry
                     </Button>
@@ -487,7 +501,9 @@ export function PlannerChat({
               <Button
                 size="icon-lg"
                 aria-label="Send message"
-                disabled={input.trim().length === 0}
+                disabled={
+                  input.trim().length === 0 || lifecycleBlocked
+                }
                 onClick={() => send(input)}
               >
                 <SendHorizonal aria-hidden />

@@ -59,7 +59,7 @@ export function WatchingTab({ ready }: { ready: boolean }) {
       <EmptyState
         icon={Bell}
         title="You're not following anything yet"
-        hint="Follow a project or town to enable alerts when official details change."
+        hint="Follow a project or town for in-app alerts when official applicant, supply or deadline details change."
         action={
           <Button render={<Link href="/explore" />} nativeButton={false}>
             Find projects

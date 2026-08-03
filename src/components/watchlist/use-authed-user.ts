@@ -14,16 +14,16 @@ import { api } from "../../../convex/_generated/api";
  * upsert throws server-side and spams the console).
  */
 export function useAuthedUser(): boolean {
-  const { isLoaded, isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn, userId } = useAuth();
   const upsertUser = useMutation(api.users.upsertCurrent);
-  const [ready, setReady] = useState(false);
+  const [readyUserId, setReadyUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isLoaded || isSignedIn !== true) return;
+    if (!isLoaded || isSignedIn !== true || !userId) return;
     let cancelled = false;
     upsertUser({})
       .then(() => {
-        if (!cancelled) setReady(true);
+        if (!cancelled) setReadyUserId(userId);
       })
       .catch(() => {
         // Signed out mid-flight or offline — queries stay skipped.
@@ -31,7 +31,12 @@ export function useAuthedUser(): boolean {
     return () => {
       cancelled = true;
     };
-  }, [isLoaded, isSignedIn, upsertUser]);
+  }, [isLoaded, isSignedIn, upsertUser, userId]);
 
-  return isLoaded && isSignedIn === true && ready;
+  return (
+    isLoaded &&
+    isSignedIn === true &&
+    userId !== null &&
+    readyUserId === userId
+  );
 }

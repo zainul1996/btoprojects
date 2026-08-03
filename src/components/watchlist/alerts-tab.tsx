@@ -98,7 +98,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
         <EmptyState
           icon={Inbox}
           title="No alerts yet"
-          hint="Updates to projects, towns and stations you follow will appear here."
+          hint="Official applicant, supply and deadline updates for projects and towns you follow will appear here in app."
         />
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -147,7 +147,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
                 </p>
                 {href ? (
                   <p className="mt-2 text-xs font-medium text-teal-deep">
-                    View affected project
+                    View details
                   </p>
                 ) : null}
               </>
@@ -168,7 +168,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
                   <Link
                     href={href}
                     onClick={() => openAlert(alert)}
-                    aria-label={`${ariaLabel}. View affected project`}
+                    aria-label={`${ariaLabel}. View details`}
                     className={className}
                   >
                     {content}

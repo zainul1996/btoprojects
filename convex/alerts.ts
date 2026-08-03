@@ -19,6 +19,7 @@ const alertListItemValidator = v.object({
   title: v.string(),
   body: v.string(),
   projectId: v.optional(v.id("projects")),
+  alertEventId: v.optional(v.id("alertEvents")),
   projectSlug: v.optional(v.string()),
   read: v.boolean(),
   deliveredVia: v.array(v.string()),

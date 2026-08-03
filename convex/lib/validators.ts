@@ -160,6 +160,7 @@ export const userValidator = v.object({
 
 export const geoPointValidator = v.object({
   label: v.string(),
+  address: v.optional(v.string()),
   lat: v.number(),
   lng: v.number(),
 });
@@ -169,9 +170,10 @@ export const userProfileValidator = v.object({
   _creationTime: v.number(),
   userId: v.id("users"),
   budgetMax: v.optional(v.number()),
-  householdType: v.optional(v.string()),
   waitToleranceMonths: v.optional(v.number()),
   flatTypes: v.array(v.string()),
+  towns: v.optional(v.array(v.string())),
+  regions: v.optional(v.array(v.string())),
   workplaces: v.array(geoPointValidator),
   parentsArea: v.optional(geoPointValidator),
   updatedAt: v.number(),
@@ -201,6 +203,7 @@ export const alertValidator = v.object({
   title: v.string(),
   body: v.string(),
   projectId: v.optional(v.id("projects")),
+  alertEventId: v.optional(v.id("alertEvents")),
   read: v.boolean(),
   deliveredVia: v.array(v.string()),
   createdAt: v.number(),

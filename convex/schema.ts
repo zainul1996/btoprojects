@@ -62,6 +62,14 @@ export const sourceKindValidator = v.union(
   v.literal("manual"),
   v.literal("research"),
 );
+export const alertEventStatusValidator = v.union(
+  v.literal("pending"),
+  v.literal("delivered"),
+);
+export const alertEventDeliveryPhaseValidator = v.union(
+  v.literal("project"),
+  v.literal("town"),
+);
 
 export default defineSchema({
   exercises: defineTable({
@@ -206,13 +214,31 @@ export default defineSchema({
     householdType: v.optional(v.string()),
     waitToleranceMonths: v.optional(v.number()),
     flatTypes: v.array(v.string()),
+    towns: v.optional(v.array(v.string())),
+    regions: v.optional(v.array(v.string())),
     workplaces: v.array(
-      v.object({ label: v.string(), lat: v.number(), lng: v.number() }),
+      v.object({
+        label: v.string(),
+        address: v.optional(v.string()),
+        lat: v.number(),
+        lng: v.number(),
+      }),
     ),
     parentsArea: v.optional(
-      v.object({ label: v.string(), lat: v.number(), lng: v.number() }),
+      v.object({
+        label: v.string(),
+        address: v.optional(v.string()),
+        lat: v.number(),
+        lng: v.number(),
+      }),
     ),
     updatedAt: v.number(),
+  }).index("by_user", ["userId"]),
+
+  geocodeRateLimits: defineTable({
+    userId: v.id("users"),
+    windowStart: v.number(),
+    count: v.number(),
   }).index("by_user", ["userId"]),
 
   watchlists: defineTable({
@@ -228,6 +254,7 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
+    .index("by_user_and_target", ["userId", "targetType", "targetId"])
     .index("by_target", ["targetType", "targetId"]),
 
   alerts: defineTable({
@@ -242,12 +269,34 @@ export default defineSchema({
     title: v.string(),
     body: v.string(),
     projectId: v.optional(v.id("projects")),
+    alertEventId: v.optional(v.id("alertEvents")),
     read: v.boolean(),
-    deliveredVia: v.array(v.string()), // e.g. ["inapp", "telegram"]
+    deliveredVia: v.array(v.string()), // currently always ["inapp"]
     createdAt: v.number(),
   })
     .index("by_user", ["userId"])
-    .index("by_user_and_read", ["userId", "read"]),
+    .index("by_user_and_read", ["userId", "read"])
+    .index("by_event_and_user", ["alertEventId", "userId"]),
+
+  // Transactional outbox for official project changes. Ingestion inserts an
+  // event in the same mutation as its facts; delivery atomically fans out the
+  // event to in-app alerts and marks it delivered.
+  alertEvents: defineTable({
+    projectId: v.id("projects"),
+    eventKey: v.string(),
+    title: v.string(),
+    body: v.string(),
+    status: alertEventStatusValidator,
+    // Optional for migration compatibility. Existing pending rows begin in
+    // the project phase at a null cursor.
+    deliveryPhase: v.optional(alertEventDeliveryPhaseValidator),
+    deliveryCursor: v.optional(v.string()),
+    deliveryError: v.optional(v.string()),
+    createdAt: v.number(),
+    deliveredAt: v.optional(v.number()),
+  })
+    .index("by_event_key", ["eventKey"])
+    .index("by_status_and_created", ["status", "createdAt"]),
 
   notificationLog: defineTable({
     alertId: v.optional(v.id("alerts")),

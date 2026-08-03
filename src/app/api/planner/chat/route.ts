@@ -6,6 +6,7 @@ import {
   streamText,
 } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
+import { auth } from "@clerk/nextjs/server";
 import { ConvexHttpClient } from "convex/browser";
 
 import {
@@ -13,8 +14,10 @@ import {
   DEFAULT_MODEL,
   normalizeConstraints,
 } from "../../../../../convex/lib/plannerShared";
+import { api } from "../../../../../convex/_generated/api";
 import { createPlannerTools, createTurnCorpus, type TurnCorpus } from "@/lib/planner/tools";
 import type { PlannerUIMessage } from "@/lib/planner/types";
+import type { ProfileGeo } from "../../../../../convex/lib/profilePreferences";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -27,7 +30,46 @@ export const maxDuration = 60;
  * cited slug and dollar figure against the union of this turn's tool results.
  */
 
-const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "");
+async function authenticatedConvex(): Promise<{
+  client: ConvexHttpClient;
+  profileGeo?: ProfileGeo;
+}> {
+  const client = new ConvexHttpClient(
+    process.env.NEXT_PUBLIC_CONVEX_URL ?? "",
+  );
+  try {
+    const { userId, getToken, sessionClaims } = await auth();
+    if (!userId) return { client };
+    const token = await getToken(
+      sessionClaims?.aud === "convex" ? undefined : { template: "convex" },
+    );
+    if (!token) return { client };
+    client.setAuth(token);
+    const profile = await client.query(api.profile.get, {});
+    if (!profile) return { client };
+    return {
+      client,
+      profileGeo: {
+        workplaces: profile.workplaces.map((point, index) => ({
+          label: `Workplace ${index + 1}`,
+          lat: point.lat,
+          lng: point.lng,
+        })),
+        ...(profile.parentsArea
+          ? {
+              parentsArea: {
+                label: "Parents’ area",
+                lat: profile.parentsArea.lat,
+                lng: profile.parentsArea.lng,
+              },
+            }
+          : {}),
+      },
+    };
+  } catch {
+    return { client };
+  }
+}
 
 function messageText(message: PlannerUIMessage): string {
   return message.parts
@@ -87,6 +129,7 @@ export async function POST(req: Request) {
   const body = (await req.json()) as {
     messages?: PlannerUIMessage[];
     priorConstraints?: unknown;
+    requestGeneration?: unknown;
   };
   const messages = body.messages ?? [];
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
@@ -94,6 +137,13 @@ export async function POST(req: Request) {
   // Constraint memory sent by the client; forwarded into the model's context
   // so multi-turn updates ("make it cheaper") keep earlier fields.
   const priorConstraints = normalizeConstraints(body.priorConstraints);
+  const requestGeneration =
+    typeof body.requestGeneration === "number" &&
+    Number.isSafeInteger(body.requestGeneration) &&
+    body.requestGeneration > 0
+      ? body.requestGeneration
+      : 0;
+  const { client: convex, profileGeo } = await authenticatedConvex();
 
   const apiKey = process.env.OPENROUTER_API_KEY;
   const model = process.env.OPENROUTER_MODEL ?? DEFAULT_MODEL;
@@ -148,11 +198,17 @@ export async function POST(req: Request) {
         tavilyApiKey: process.env.TAVILY_API_KEY,
         signal: req.signal,
         todayISO,
+        profileGeo,
+        requestGeneration,
       });
 
       writer.write({
         type: "data-phase",
-        data: { phase: "reading", label: "Reading your situation" },
+        data: {
+          phase: "reading",
+          label: "Reading your situation",
+          generation: requestGeneration,
+        },
         transient: true,
       });
 
@@ -180,7 +236,11 @@ export async function POST(req: Request) {
           if (step.toolCalls.length > 0) {
             writer.write({
               type: "data-phase",
-              data: { phase: "writing", label: "Writing your answer" },
+              data: {
+                phase: "writing",
+                label: "Writing your answer",
+                generation: requestGeneration,
+              },
               transient: true,
             });
           }
@@ -212,6 +272,7 @@ export async function POST(req: Request) {
                 corpus.fallbackText ??
                 "I could not verify that answer against our records, so I have replaced it. Try narrowing the question, or set an alert below and we will let you know when a matching launch appears.",
               reason: "citation-check",
+              generation: requestGeneration,
             },
           });
         }

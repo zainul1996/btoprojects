@@ -156,9 +156,15 @@ export const getBySlug = query({
       (facts[fact.field] ??= []).push(fact);
     }
 
+    const sourceIds = new Set([
+      ...sourceLinks.map((link) => link.sourceId),
+      ...factRows.flatMap((fact) => (fact.sourceId ? [fact.sourceId] : [])),
+    ]);
     const sources = (
-      await Promise.all(sourceLinks.map((link) => ctx.db.get("sources", link.sourceId)))
-    ).filter((s): s is Doc<"sources"> => s !== null);
+      await Promise.all(
+        [...sourceIds].map((sourceId) => ctx.db.get("sources", sourceId)),
+      )
+    ).filter((source): source is Doc<"sources"> => source !== null);
 
     return { project, town, exercise, flatTypes, facts, sources };
   },
@@ -217,6 +223,13 @@ function median(values: number[]): number | null {
     : sorted[mid];
 }
 
+/** BTO labels at the project boundary → canonical data.gov.sg resale labels. */
+function toResaleFlatType(flatType: string): string {
+  if (flatType === "2-room Flexi") return "2-room";
+  if (flatType === "3Gen") return "multi-generation";
+  return flatType;
+}
+
 /** "YYYY-MM" minus n months, still "YYYY-MM". */
 function shiftMonth(month: string, delta: number): string {
   const [y, m] = month.split("-").map(Number);
@@ -256,15 +269,26 @@ export const comparables = query({
       };
     }
 
-    const rows = await ctx.db
-      .query("resaleTransactions")
-      .withIndex("by_town", (q) => q.eq("town", town.name))
-      .collect();
-
-    const wantedTypes = args.flatTypes;
-    const filtered = wantedTypes?.length
-      ? rows.filter((r) => wantedTypes.includes(r.flatType))
-      : rows;
+    const wantedTypes = args.flatTypes?.length
+      ? [...new Set(args.flatTypes.map(toResaleFlatType))]
+      : null;
+    const filtered = wantedTypes
+      ? (
+          await Promise.all(
+            wantedTypes.map((flatType) =>
+              ctx.db
+                .query("resaleTransactions")
+                .withIndex("by_town_and_type", (q) =>
+                  q.eq("town", town.name).eq("flatType", flatType),
+                )
+                .collect(),
+            ),
+          )
+        ).flat()
+      : await ctx.db
+          .query("resaleTransactions")
+          .withIndex("by_town", (q) => q.eq("town", town.name))
+          .collect();
 
     const cutoff = shiftMonth(args.asOfMonth, -6);
     const recent = filtered.filter((r) => r.month >= cutoff);

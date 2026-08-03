@@ -30,7 +30,7 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 | F1.6 | OneMap client (token cache + auto-refresh, geocode) | Done | 72h JWT cached in kv table, cron refresh; ingestion geocoder re-auths on expiry (env tokens expire) |
 | F1.7 | LLM fallback extraction | Deferred | With HDB parser phase |
 | F1.8 | Reconciliation job + review queue | Deferred | D-be3 |
-| F1.9 | Publish → alert trigger chain | Done | alertsEngine.notifyProjectUpdate → watchlist match → Telegram batch |
+| F1.9 | Publish → alert trigger chain | Done | Atomic fact + deduped alertEvents outbox write; bounded indexed delivery to deduped project + town watchers; in-app only |
 | F1.10 | Parser monitoring + Sentry | Deferred | ingestionJobs table done; Sentry account pending |
 | F1.11 | Seed: 12 real 2026 projects with full provenance | Done | 12 projects, 36 flat types, 228 facts, 11 sources, 27 towns, 50 MRT stations |
 | F1.12 | Ingestion framework (`convex/ingest/`) | Done | Shared lib (job log, source rows, guarded fact writes — never downgrades "official") + per-source modules; daily crons for resale/geocode/HDB launches |
@@ -56,8 +56,8 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 |---|---|---|---|
 | F3.1 | Clerk auth (Google), browse-without-login | Done | `<Show>` gating; sign-in only for saves |
 | F3.2 | Watchlists (project, town, MRT) | Done | Deduped, grouped UI |
-| F3.3 | Change detection → alert matching | Done | Engine ready; fires on future ingestion updates |
-| F3.4 | Email alerts | Deferred | Resend excluded this phase — **Telegram delivery live instead** (verified end-to-end) + in-app feed + logs |
+| F3.3 | Change detection → alert matching | Done | HDB parser produces at most one in-app alert per changed BTO project or SBF town pool per run; unchanged facts do not alert |
+| F3.4 | External alert delivery | Deferred | Production alerts are in-app only; email and Telegram delivery are not enabled |
 | F3.5 | Comparison workspace (2–4) + persistent tray | Done | Sticky header/column, best-cell cues, "What you give up" row; localStorage tray (anonymous) |
 
 ## MVP — Planner & SEO
@@ -79,11 +79,17 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| V1.1 | Profile-based ranking from saved household profile | Not started | userProfiles table ready |
-| V1.2 | Commute calculator (OneMap routing) | Not started | onemap.geocode ready; routing adapter pending |
+| V1.1 | Saved planning preferences + profile-based ranking | Done | Authenticated Preferences tab reuses userProfiles; empty planner conversations seed non-location constraints plus fixed place aliases. The server fetches coordinates directly from the authenticated profile for deterministic scoring; exact addresses never enter browser planner requests, AI prompts or planner memory |
+| V1.2 | Commute calculator (OneMap routing) | In progress | OneMap address confirmation and project-to-saved-place straight-line km shipped; routing ETAs and travel times remain deferred |
 | V1.3 | Affordability scenarios (CPF/grants modelling) | Not started | Indicative strip exists on project page |
 | V1.4 | SBF unit-level listings + launch prices | Not started | Flat Portal listing API unexplored; press-release starting-price tables via secondary mirrors (P3) |
 | V1.5 | Public project change log | Not started | |
+
+Release B deliberately does not include routing ETAs, MRT watches/alerts or
+pages, automatic Explorer mutation, or household eligibility. Saved exact
+places stay account-private and are excluded from planner prompts, memory and
+shareable Explorer URLs. Address lookup is capped at 10 resolves per user per
+hour.
 
 ## V2 (planned)
 
@@ -99,5 +105,5 @@ Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 | Date | Entry |
 |---|---|
 | 2 Aug 2026 | Tracker created; F0.1–F0.2 done |
-| 2 Aug 2026 | **First autonomous multi-agent build complete** (8 agents: research → scaffold → design system → backend → explorer/pages/workspace → validation). Live local app: 12 real seeded projects w/ provenance, explorer+map, full blueprint pages, compare workspace, watchlist + Telegram alerts (verified), grounded planner w/ citations, 696 real resale rows. All gates green; commits through d01c5f0 on main. Pending from validation: fixes (if any), sitemap/structured data, then docs sync. |
+| 2 Aug 2026 | **First autonomous multi-agent build complete** (8 agents: research → scaffold → design system → backend → explorer/pages/workspace → validation). Live local app: 12 real seeded projects w/ provenance, explorer+map, full blueprint pages, compare workspace, watchlist + in-app alert feed, grounded planner w/ citations, 696 real resale rows. All gates green; commits through d01c5f0 on main. Pending from validation: fixes (if any), sitemap/structured data, then docs sync. |
 | 3 Aug 2026 | SEO launch-readiness pass complete: consistent canonical metadata, production-aware robots, resilient sitemap with social images, structured data across public content families, visible source methodology, data.gov.sg licence attribution, direct internal links and project-specific Open Graph/Twitter images. Lint, typecheck, tests and production build pass. |

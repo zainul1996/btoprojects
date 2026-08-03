@@ -2,146 +2,278 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useRef,
   useState,
   type Dispatch,
   type ReactNode,
-  type RefObject,
   type SetStateAction,
 } from "react";
 import { DefaultChatTransport } from "ai";
-import { useChat, type UseChatHelpers } from "@ai-sdk/react";
-import { useMutation } from "convex/react";
+import { useChat } from "@ai-sdk/react";
+import { useAuth } from "@clerk/nextjs";
+import { useMutation, useQuery } from "convex/react";
 
 import { api } from "../../../convex/_generated/api";
 import type { Id } from "../../../convex/_generated/dataModel";
 import type { PlannerConstraints } from "@/components/planner/ranking-card";
 import { useAuthedUser } from "@/components/watchlist/use-authed-user";
-import { readStoredChat } from "@/lib/planner/chat-storage";
+import {
+  clearStoredChat,
+  identityTransitionMode,
+  readStoredChat,
+} from "@/lib/planner/chat-storage";
 import { citedSlugsIn, rankingsOf, textOf } from "@/lib/planner/message-parts";
+import { constraintsFromProfile } from "@/lib/planner/profile-seed";
 import type { PlannerPhase, PlannerUIMessage } from "@/lib/planner/types";
 
-export type PlannerChatContextValue = Pick<
-  UseChatHelpers<PlannerUIMessage>,
-  "messages" | "setMessages" | "sendMessage" | "status" | "stop" | "regenerate"
-> & {
-  /** True while a reply is being submitted or streamed. */
+export type PlannerChatContextValue = {
+  messages: PlannerUIMessage[];
+  status: ReturnType<typeof useChat<PlannerUIMessage>>["status"];
+  stop: ReturnType<typeof useChat<PlannerUIMessage>>["stop"];
   pending: boolean;
+  lifecycleBlocked: boolean;
   phase: PlannerPhase | null;
-  setPhase: Dispatch<SetStateAction<PlannerPhase | null>>;
   constraints: PlannerConstraints;
-  setConstraints: Dispatch<SetStateAction<PlannerConstraints>>;
   sessionId: Id<"plannerSessions"> | null;
-  setSessionId: Dispatch<SetStateAction<Id<"plannerSessions"> | null>>;
   input: string;
   setInput: Dispatch<SetStateAction<string>>;
-  /** False through SSR and the first client render, true once the sessionStorage restore has run. */
   hydrated: boolean;
   authed: boolean;
-  /** Always-current constraints for stream callbacks and the send body. */
-  constraintsRef: RefObject<PlannerConstraints>;
+  usingSavedPreferences: boolean;
+  storageOwner: string | null;
+  submitMessage: (text: string, prior: PlannerConstraints) => void;
+  retryMessage: () => void;
+  resetConversation: () => void;
+};
+
+type ActiveRequest = {
+  generation: number;
+  owner: string | null;
+  userMessageId: string;
+};
+
+type PendingLifecycle = {
+  generation: number;
+  mode: "clear" | "rebind";
+  owner: string | null;
+  preservedMessages?: PlannerUIMessage[];
 };
 
 const PlannerChatContext = createContext<PlannerChatContextValue | null>(null);
 
-// Lives in the root layout so the chat (and any in-flight stream) survives
-// client-side navigation; sessionStorage covers full reloads.
 export function PlannerChatProvider({ children }: { children: ReactNode }) {
+  const { isLoaded: clerkLoaded, userId: clerkUserId } = useAuth();
+  const currentOwner = clerkUserId ?? null;
   const authed = useAuthedUser();
   const saveTurn = useMutation(api.planner.saveTurn);
+  const profile = useQuery(api.profile.getPlannerSeed, authed ? {} : "skip");
 
   const [transport] = useState(
     () =>
       new DefaultChatTransport<PlannerUIMessage>({ api: "/api/planner/chat" }),
   );
-
   const [phase, setPhase] = useState<PlannerPhase | null>(null);
   const [constraints, setConstraints] = useState<PlannerConstraints>(null);
   const [sessionId, setSessionId] = useState<Id<"plannerSessions"> | null>(
     null,
   );
   const [input, setInput] = useState("");
-  // Stays false through SSR and the first client render so the stored chat
-  // never fights hydration; the welcome only shows once restore has run.
   const [hydrated, setHydrated] = useState(false);
+  const [usingSavedPreferences, setUsingSavedPreferences] = useState(false);
+  const [lifecycleBlocked, setLifecycleBlocked] = useState(false);
+  const [storageOwner, setStorageOwner] = useState<string | null>(null);
 
-  // Refs keep streaming callbacks free of stale closures.
+  const restoredOnceRef = useRef(false);
+  const clerkIdentityRef = useRef<string | null | undefined>(undefined);
+  const generationRef = useRef(0);
+  const activeRequestRef = useRef<ActiveRequest | null>(null);
+  const pendingLifecycleRef = useRef<PendingLifecycle | null>(null);
   const authedRef = useRef(authed);
+  const ownerRef = useRef<string | null>(currentOwner);
   const constraintsRef = useRef(constraints);
   const sessionIdRef = useRef(sessionId);
-  useEffect(() => {
-    authedRef.current = authed;
-    constraintsRef.current = constraints;
-    sessionIdRef.current = sessionId;
-  }, [authed, constraints, sessionId]);
 
-  const { messages, setMessages, sendMessage, status, stop, regenerate } =
-    useChat<PlannerUIMessage>({
-      transport,
-      onData: (part) => {
-        if (part.type === "data-phase") setPhase(part.data);
-        if (part.type === "data-constraints") {
-          setConstraints(part.data.constraints);
-        }
-        if (part.type === "data-replaceText") {
-          // Post-stream integrity correction: swap the narration, keep the
-          // cards and chips. The part itself stays in the message, which is
-          // how AssistantTurn knows to show the "Adjusted for accuracy" note.
-          const { text } = part.data;
-          setMessages((current) => {
-            const next = [...current];
-            for (let i = next.length - 1; i >= 0; i--) {
-              const message = next[i];
-              if (message.role !== "assistant") continue;
-              next[i] = {
-                ...message,
-                parts: [
-                  { type: "text", text },
-                  ...message.parts.filter((p) => p.type !== "text"),
-                ],
-              };
-              break;
-            }
-            return next;
-          });
-        }
-      },
-      onFinish: ({ message, messages: all, isError, isAbort }) => {
-        setPhase(null);
-        if (isError || isAbort || !authedRef.current) return;
-        const userMessage = all[all.length - 2];
-        if (!userMessage || userMessage.role !== "user") return;
-        const reply = textOf(message);
-        if (!reply) return;
-        const rankings = rankingsOf(message);
-        void saveTurn({
-          sessionId: sessionIdRef.current ?? undefined,
-          userMessage: textOf(userMessage),
-          assistantMessage: reply,
-          constraints: constraintsRef.current ?? undefined,
-          citedProjectSlugs: citedSlugsIn(reply, rankings),
+  const {
+    messages,
+    setMessages,
+    sendMessage: rawSendMessage,
+    status,
+    stop,
+    regenerate: rawRegenerate,
+  } = useChat<PlannerUIMessage>({
+    transport,
+    onData: (part) => {
+      const active = activeRequestRef.current;
+      if (part.type === "data-phase") {
+        if (!active || part.data.generation !== active.generation) return;
+        setPhase({ phase: part.data.phase, label: part.data.label });
+      }
+      if (part.type === "data-constraints") {
+        if (!active || part.data.generation !== active.generation) return;
+        constraintsRef.current = part.data.constraints;
+        setConstraints(part.data.constraints);
+        setUsingSavedPreferences(false);
+      }
+      if (part.type === "data-replaceText") {
+        if (!active || part.data.generation !== active.generation) return;
+        const { text } = part.data;
+        setMessages((current) => {
+          const next = [...current];
+          for (let i = next.length - 1; i >= 0; i--) {
+            const message = next[i];
+            if (message.role !== "assistant") continue;
+            next[i] = {
+              ...message,
+              parts: [
+                { type: "text", text },
+                ...message.parts.filter((p) => p.type !== "text"),
+              ],
+            };
+            break;
+          }
+          return next;
+        });
+      }
+    },
+    onFinish: ({ message, messages: all, isError, isAbort }) => {
+      const active = activeRequestRef.current;
+      const userMessage = all[all.length - 2];
+      if (
+        !active ||
+        generationRef.current !== active.generation ||
+        ownerRef.current !== active.owner ||
+        !userMessage ||
+        userMessage.role !== "user" ||
+        userMessage.id !== active.userMessageId
+      ) {
+        return;
+      }
+      activeRequestRef.current = null;
+      setPhase(null);
+      if (isError || isAbort || !authedRef.current) return;
+      const reply = textOf(message);
+      if (!reply) return;
+      const rankings = rankingsOf(message);
+      const generation = active.generation;
+      const owner = active.owner;
+      void saveTurn({
+        sessionId: sessionIdRef.current ?? undefined,
+        userMessage: textOf(userMessage),
+        assistantMessage: reply,
+        constraints: constraintsRef.current ?? undefined,
+        citedProjectSlugs: citedSlugsIn(reply, rankings),
+      })
+        .then((id) => {
+          if (
+            generationRef.current === generation &&
+            ownerRef.current === owner
+          ) {
+            setSessionId(id);
+          }
         })
-          .then((id) => setSessionId(id))
-          .catch(() => {
-            // History is a convenience; never block the chat over it.
-          });
-      },
-      onError: () => setPhase(null),
-    });
+        .catch(() => {
+          // History is a convenience; never block chat over it.
+        });
+    },
+    onError: () => {
+      if (activeRequestRef.current) {
+        activeRequestRef.current = null;
+        setPhase(null);
+      }
+    },
+  });
 
   const pending = status === "submitted" || status === "streaming";
 
-  // Restore after mount (never in a useState initializer: the shell is
-  // prerendered, and sessionStorage does not exist on the server). The
-  // microtask keeps state writes out of the synchronous effect body; the
-  // cancelled flag covers unmount and StrictMode's double effect.
   useEffect(() => {
+    authedRef.current = authed;
+    ownerRef.current = currentOwner;
+    constraintsRef.current = constraints;
+    sessionIdRef.current = sessionId;
+  }, [authed, constraints, currentOwner, sessionId]);
+
+  const finishLifecycle = useCallback(
+    (transition: PendingLifecycle) => {
+      if (generationRef.current !== transition.generation) return;
+      activeRequestRef.current = null;
+      authedRef.current = false;
+      sessionIdRef.current = null;
+      clearStoredChat();
+      setSessionId(null);
+      setPhase(null);
+      setUsingSavedPreferences(false);
+      setStorageOwner(transition.owner);
+      if (transition.mode === "clear") {
+        constraintsRef.current = null;
+        setMessages([]);
+        setConstraints(null);
+        setInput("");
+      } else if (transition.preservedMessages) {
+        setMessages(transition.preservedMessages);
+      }
+      setLifecycleBlocked(false);
+      setHydrated(true);
+    },
+    [setMessages],
+  );
+
+  const invalidateLifecycle = useCallback((
+    mode: "clear" | "rebind",
+    owner: string | null,
+  ) => {
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    const preservedMessages =
+      mode === "rebind"
+        ? messages.filter(
+            (message, index) =>
+              !(
+                pending &&
+                index === messages.length - 1 &&
+                message.role === "assistant"
+              ),
+          )
+        : undefined;
+    const transition = {
+      generation,
+      mode,
+      owner,
+      preservedMessages,
+    } satisfies PendingLifecycle;
+    activeRequestRef.current = null;
+    authedRef.current = false;
+    sessionIdRef.current = null;
+    clearStoredChat();
+    setLifecycleBlocked(true);
+    setHydrated(false);
+    if (pending) {
+      pendingLifecycleRef.current = transition;
+      void stop();
+      return;
+    }
+    queueMicrotask(() => finishLifecycle(transition));
+  }, [finishLifecycle, messages, pending, stop]);
+
+  useEffect(() => {
+    if (pending || pendingLifecycleRef.current === null) return;
+    const transition = pendingLifecycleRef.current;
+    pendingLifecycleRef.current = null;
+    queueMicrotask(() => finishLifecycle(transition));
+  });
+
+  useEffect(() => {
+    if (!clerkLoaded || restoredOnceRef.current) return;
+    restoredOnceRef.current = true;
+    const expectedOwner = clerkUserId ?? null;
+    clerkIdentityRef.current = expectedOwner;
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      const stored = readStoredChat();
+      const stored = readStoredChat(expectedOwner);
+      setStorageOwner(expectedOwner);
       if (stored) {
         if (stored.messages.length > 0) setMessages(stored.messages);
         if (stored.constraints) setConstraints(stored.constraints);
@@ -153,29 +285,116 @@ export function PlannerChatProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [setMessages]);
+  }, [clerkLoaded, clerkUserId, setMessages]);
+
+  useEffect(() => {
+    if (!clerkLoaded || clerkIdentityRef.current === undefined) return;
+    const previousIdentity = clerkIdentityRef.current;
+    const nextIdentity = clerkUserId ?? null;
+    if (previousIdentity === nextIdentity) return;
+    clerkIdentityRef.current = nextIdentity;
+    invalidateLifecycle(
+      identityTransitionMode(previousIdentity, nextIdentity),
+      nextIdentity,
+    );
+  }, [clerkLoaded, clerkUserId, invalidateLifecycle]);
+
+  useEffect(() => {
+    if (
+      !hydrated ||
+      lifecycleBlocked ||
+      profile === undefined ||
+      messages.length > 0 ||
+      constraints !== null ||
+      !profile
+    ) {
+      return;
+    }
+    const seeded = constraintsFromProfile(profile);
+    if (!seeded) return;
+    let cancelled = false;
+    queueMicrotask(() => {
+      if (cancelled || lifecycleBlocked) return;
+      setConstraints(seeded);
+      setUsingSavedPreferences(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    constraints,
+    hydrated,
+    lifecycleBlocked,
+    messages.length,
+    profile,
+  ]);
+
+  const submitMessage = (text: string, prior: PlannerConstraints) => {
+    if (pending || lifecycleBlocked || !text.trim()) return;
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    const userMessageId = `planner-${generation}-${crypto.randomUUID()}`;
+    activeRequestRef.current = {
+      generation,
+      owner: ownerRef.current,
+      userMessageId,
+    };
+    void rawSendMessage(
+      { text: text.trim(), messageId: userMessageId },
+      { body: { priorConstraints: prior, requestGeneration: generation } },
+    ).catch(() => {
+      if (activeRequestRef.current?.generation === generation) {
+        activeRequestRef.current = null;
+      }
+    });
+  };
+
+  const retryMessage = () => {
+    if (pending || lifecycleBlocked) return;
+    const userMessage = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    if (!userMessage) return;
+    const generation = generationRef.current + 1;
+    generationRef.current = generation;
+    activeRequestRef.current = {
+      generation,
+      owner: ownerRef.current,
+      userMessageId: userMessage.id,
+    };
+    void rawRegenerate({
+      body: {
+        priorConstraints: constraintsRef.current,
+        requestGeneration: generation,
+      },
+    }).catch(() => {
+      if (activeRequestRef.current?.generation === generation) {
+        activeRequestRef.current = null;
+      }
+    });
+  };
 
   return (
     <PlannerChatContext.Provider
       value={{
         messages,
-        setMessages,
-        sendMessage,
         status,
         stop,
-        regenerate,
         pending,
+        lifecycleBlocked,
         phase,
-        setPhase,
         constraints,
-        setConstraints,
         sessionId,
-        setSessionId,
         input,
         setInput,
         hydrated,
         authed,
-        constraintsRef,
+        usingSavedPreferences,
+        storageOwner,
+        submitMessage,
+        retryMessage,
+        resetConversation: () =>
+          invalidateLifecycle("clear", ownerRef.current),
       }}
     >
       {children}

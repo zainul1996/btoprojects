@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { SourceBadge } from "@/components/source-badge";
 
 import { ProjectMiniMap } from "./project-mini-map";
+import { SavedPlaceDistances } from "./saved-place-distances";
 import { factConfidence, townHref, type ProjectDetails } from "./utils";
 
 /**
@@ -56,6 +57,12 @@ export function ProjectLocation({ details }: { details: ProjectDetails }) {
                 : "Nearest MRT and walking times are published at launch."}
             </p>
           )}
+
+          <SavedPlaceDistances
+            saleType={project.saleType}
+            projectLat={project.lat}
+            projectLng={project.lng}
+          />
 
           {townName ? (
             <div className="border-t border-border/60 pt-4">

@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { api } from "../../../convex/_generated/api";
 import type { Doc } from "../../../convex/_generated/dataModel";
+import {
+  enrichLocationPreferences,
+  type ProfileGeo,
+} from "../../../convex/lib/profilePreferences";
 import { rankProjects } from "../../../convex/lib/ranking";
 import {
   buildSuggestions,
@@ -184,6 +188,8 @@ export interface PlannerToolDeps {
   tavilyApiKey: string | undefined;
   signal: AbortSignal;
   todayISO: string;
+  profileGeo?: ProfileGeo;
+  requestGeneration: number;
 }
 
 export function createPlannerTools(deps: PlannerToolDeps) {
@@ -192,7 +198,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
   const phase = (phaseId: PlannerPhaseId, label: string) => {
     writer.write({
       type: "data-phase",
-      data: { phase: phaseId, label },
+      data: { phase: phaseId, label, generation: deps.requestGeneration },
       transient: true,
     });
   };
@@ -406,7 +412,18 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         };
       }
       const all = await convex.query(api.planner.forRanking, {});
-      const ranked = rankProjects(all, toRankingConstraints(constraints));
+      const rankingConstraints = toRankingConstraints(constraints);
+      const enrichedLocations = enrichLocationPreferences(
+        {
+          workplaces: rankingConstraints.workplaces,
+          parentsArea: rankingConstraints.parentsArea,
+        },
+        deps.profileGeo,
+      );
+      const ranked = rankProjects(all, {
+        ...rankingConstraints,
+        ...enrichedLocations,
+      });
       let top: typeof ranked = [];
       let noMatch: NarrationNoMatch | undefined;
 
@@ -463,7 +480,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
       writer.write({
         type: "data-constraints",
         id: "constraints",
-        data: { constraints },
+        data: { constraints, generation: deps.requestGeneration },
       });
       if (top.length > 0) {
         writer.write({

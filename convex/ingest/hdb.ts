@@ -1,11 +1,17 @@
 import { v } from "convex/values";
 import {
+  type ActionCtx,
   internalAction,
   internalMutation,
   internalQuery,
 } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { classificationValidator, exerciseStatusValidator } from "../schema";
+import {
+  buildHdbEventKey,
+  buildHdbProjectAlert,
+  isAlertWorthyHdbFact,
+} from "./hdbAlerts";
 import { emptySummary, INGEST_JOBS, type IngestRunSummary } from "./types";
 
 /**
@@ -627,27 +633,15 @@ const createProjectShellArgs = {
   notes: v.optional(v.string()),
 };
 
-/**
- * Reconciliation for pre-seeded "announced" projects (e.g. the October 2026
- * working-title rows): when the real launch data arrives, upgrade the
- * announced row in place instead of creating a duplicate.
- *
- * Adoption is only automatic when the town has exactly ONE announced shell —
- * an unambiguous 1:1 match. Multi-shell towns (e.g. Bayshore I/II) are left
- * for human reconciliation and reported by the caller as conflicts, because
- * pairing without reliable per-project unit splits could swap identities.
- */
-export const adoptAnnouncedShell = internalMutation({
+/** Identify an unambiguous announced shell without mutating it. */
+export const findAnnouncedShell = internalQuery({
   args: {
     exerciseId: v.id("exercises"),
     townId: v.id("towns"),
-    slug: v.string(),
-    name: v.string(),
-    classification: classificationValidator,
-    applicationDeadline: v.optional(v.string()),
   },
   returns: v.object({
-    id: v.union(v.id("projects"), v.null()),
+    shellId: v.union(v.id("projects"), v.null()),
+    oldSlug: v.union(v.string(), v.null()),
     ambiguous: v.boolean(),
   }),
   handler: async (ctx, args) => {
@@ -660,10 +654,116 @@ export const adoptAnnouncedShell = internalMutation({
       (p) => p.townId === args.townId && p.lifecycleStatus === "announced",
     );
 
-    if (announced.length === 0) return { id: null, ambiguous: false };
-    if (announced.length > 1) return { id: null, ambiguous: true };
+    if (announced.length === 0) {
+      return { shellId: null, oldSlug: null, ambiguous: false };
+    }
+    if (announced.length > 1) {
+      return { shellId: null, oldSlug: null, ambiguous: true };
+    }
 
     const shell = announced[0]!;
+    return { shellId: shell._id, oldSlug: shell.slug, ambiguous: false };
+  },
+});
+
+/** Move one bounded page of project watches from an announced shell slug. */
+export const migrateAnnouncedProjectWatches = internalMutation({
+  args: {
+    shellId: v.id("projects"),
+    oldSlug: v.string(),
+    newSlug: v.string(),
+    newName: v.string(),
+    cursor: v.optional(v.string()),
+    limit: v.number(),
+  },
+  returns: v.object({
+    processed: v.number(),
+    done: v.boolean(),
+    cursor: v.union(v.string(), v.null()),
+  }),
+  handler: async (ctx, args) => {
+    const shell = await ctx.db.get("projects", args.shellId);
+    if (
+      !shell ||
+      shell.lifecycleStatus !== "announced" ||
+      shell.slug !== args.oldSlug
+    ) {
+      throw new Error("Announced shell changed during watch migration");
+    }
+    if (args.oldSlug === args.newSlug) {
+      return { processed: 0, done: true, cursor: null };
+    }
+
+    const page = await ctx.db
+      .query("watchlists")
+      .withIndex("by_target", (q) =>
+        q.eq("targetType", "project").eq("targetId", args.oldSlug),
+      )
+      .paginate({
+        numItems: Math.max(1, Math.min(50, Math.floor(args.limit))),
+        cursor: args.cursor ?? null,
+      });
+    for (const watch of page.page) {
+      const existingNewWatch = await ctx.db
+        .query("watchlists")
+        .withIndex("by_user_and_target", (q) =>
+          q
+            .eq("userId", watch.userId)
+            .eq("targetType", "project")
+            .eq("targetId", args.newSlug),
+        )
+        .first();
+      if (existingNewWatch) {
+        await ctx.db.delete("watchlists", watch._id);
+      } else {
+        await ctx.db.patch("watchlists", watch._id, {
+          targetId: args.newSlug,
+          label: args.newName,
+        });
+      }
+    }
+    return {
+      processed: page.page.length,
+      done: page.isDone,
+      cursor: page.isDone ? null : page.continueCursor,
+    };
+  },
+});
+
+/** Finalize adoption only after all old-slug watches have migrated. */
+export const finalizeAnnouncedShellAdoption = internalMutation({
+  args: {
+    shellId: v.id("projects"),
+    exerciseId: v.id("exercises"),
+    townId: v.id("towns"),
+    oldSlug: v.string(),
+    slug: v.string(),
+    name: v.string(),
+    classification: classificationValidator,
+    applicationDeadline: v.optional(v.string()),
+  },
+  returns: v.id("projects"),
+  handler: async (ctx, args) => {
+    const shell = await ctx.db.get("projects", args.shellId);
+    if (
+      !shell ||
+      shell.exerciseId !== args.exerciseId ||
+      shell.townId !== args.townId ||
+      shell.slug !== args.oldSlug ||
+      shell.lifecycleStatus !== "announced"
+    ) {
+      throw new Error("Announced shell changed before adoption finalized");
+    }
+    const remainingWatch = await ctx.db
+      .query("watchlists")
+      .withIndex("by_target", (q) =>
+        q.eq("targetType", "project").eq("targetId", args.oldSlug),
+      )
+      .first();
+    if (remainingWatch && args.oldSlug !== args.slug) {
+      throw new Error("Announced shell still has unmigrated project watches");
+    }
+
     await ctx.db.patch("projects", shell._id, {
       slug: args.slug,
       name: args.name,
@@ -678,7 +778,7 @@ export const adoptAnnouncedShell = internalMutation({
         `launch facts apply via projectFacts.`,
       updatedAt: Date.now(),
     });
-    return { id: shell._id, ambiguous: false };
+    return shell._id;
   },
 });
 const createProjectShellReturns = v.object({
@@ -860,14 +960,176 @@ interface FactToApply {
   note?: string;
 }
 
-/** "4,320"-style unit count for alert copy; falls back honestly when unknown. */
-function totalUnitsLine(project: DiscoveredProject): string {
-  const total =
-    project.totalUnits ??
-    (project.soleUnits.length > 0
-      ? project.soleUnits.reduce((sum, u) => sum + u.supply, 0)
-      : null);
-  return total === null ? "An unpublished number of" : total.toLocaleString("en-SG");
+const factToApplyValidator = v.object({
+  field: v.string(),
+  value: v.string(),
+  note: v.optional(v.string()),
+});
+
+/**
+ * Atomic HDB write boundary: evaluate and insert a project's official fact
+ * batch, create/reuse its exact file source only when referenced, and enqueue
+ * one deduped outbox event for alert-worthy changes.
+ */
+export const applyOfficialFactBatch = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    exerciseKey: v.string(),
+    exerciseLabel: v.string(),
+    kind: v.union(v.literal("bto"), v.literal("sbf")),
+    projectName: v.string(),
+    townName: v.string(),
+    source: v.object({
+      url: v.string(),
+      publisher: v.string(),
+      title: v.string(),
+    }),
+    facts: v.array(factToApplyValidator),
+  },
+  returns: v.object({
+    inserted: v.number(),
+    unchanged: v.number(),
+    conflicts: v.number(),
+    eventQueued: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const evaluated: {
+      fact: FactToApply;
+      result: "inserted" | "unchanged" | "conflict";
+      previousValue: string | null;
+    }[] = [];
+
+    for (const fact of args.facts) {
+      const latest = await ctx.db
+        .query("projectFacts")
+        .withIndex("by_project_and_field", (q) =>
+          q.eq("projectId", args.projectId).eq("field", fact.field),
+        )
+        .order("desc")
+        .first();
+      evaluated.push({
+        fact,
+        previousValue: latest?.value ?? null,
+        result:
+          latest?.value === fact.value
+            ? "unchanged"
+            : latest
+              ? "conflict"
+              : "inserted",
+      });
+    }
+
+    const changed = evaluated.filter((item) => item.result !== "unchanged");
+    if (changed.length === 0) {
+      return {
+        inserted: 0,
+        unchanged: evaluated.length,
+        conflicts: 0,
+        eventQueued: false,
+      };
+    }
+
+    const now = Date.now();
+    // Canonical-by-URL source policy: retrievedAt is the latest retrieval that
+    // produced a newly stored fact. Unchanged daily reads do not grow or touch
+    // the source table, and every created/updated source is referenced below.
+    const existingSource = await ctx.db
+      .query("sources")
+      .withIndex("by_url", (q) => q.eq("url", args.source.url))
+      .first();
+    const sourceId = existingSource
+      ? existingSource._id
+      : await ctx.db.insert("sources", {
+          url: args.source.url,
+          kind: "hdb",
+          publisher: args.source.publisher,
+          title: args.source.title,
+          retrievedAt: now,
+        });
+    if (existingSource) {
+      await ctx.db.patch("sources", existingSource._id, {
+        publisher: args.source.publisher,
+        title: args.source.title,
+        retrievedAt: now,
+      });
+    }
+
+    for (const { fact } of changed) {
+      await ctx.db.insert("projectFacts", {
+        projectId: args.projectId,
+        field: fact.field,
+        value: fact.value,
+        confidence: "official",
+        extractionMethod: "parser",
+        sourceId,
+        retrievedAt: now,
+        ...(fact.note !== undefined ? { note: fact.note } : {}),
+      });
+    }
+
+    const changedAlertFacts = changed
+      .map((item) => item.fact)
+      .filter((fact) => isAlertWorthyHdbFact(fact.field));
+    const alert = buildHdbProjectAlert({
+      kind: args.kind,
+      projectName: args.projectName,
+      townName: args.townName,
+      exerciseLabel: args.exerciseLabel,
+      changedFacts: changedAlertFacts,
+    });
+    let eventQueued = false;
+    if (alert) {
+      const eventKey = buildHdbEventKey({
+        projectId: args.projectId,
+        exerciseKey: args.exerciseKey,
+        sourceUrl: args.source.url,
+        previousFacts: evaluated.map((item) => ({
+          field: item.fact.field,
+          value: item.previousValue,
+        })),
+        facts: args.facts,
+      });
+      const existingEvent = await ctx.db
+        .query("alertEvents")
+        .withIndex("by_event_key", (q) => q.eq("eventKey", eventKey))
+        .unique();
+      if (!existingEvent) {
+        await ctx.db.insert("alertEvents", {
+          projectId: args.projectId,
+          eventKey,
+          title: alert.title,
+          body: alert.body,
+          status: "pending",
+          createdAt: now,
+        });
+        eventQueued = true;
+      }
+    }
+
+    return {
+      inserted: evaluated.filter((item) => item.result === "inserted").length,
+      unchanged: evaluated.filter((item) => item.result === "unchanged").length,
+      conflicts: evaluated.filter((item) => item.result === "conflict").length,
+      eventQueued,
+    };
+  },
+});
+
+async function requestAlertDrain(ctx: ActionCtx): Promise<void> {
+  try {
+    await ctx.scheduler.runAfter(
+      0,
+      internal.alertsEngine.drainPendingEvents,
+      {},
+    );
+  } catch (error) {
+    // Alert recovery must never prevent official data ingestion. Pending
+    // events remain durable and the next run will request another worker.
+    console.error(
+      "Unable to schedule alert outbox drain",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
 }
 
 export const run = internalAction({
@@ -892,6 +1154,9 @@ export const run = internalAction({
     });
 
     try {
+      // Queue durable recovery without blocking network discovery.
+      await requestAlertDrain(ctx);
+
       // 1. Discover which files to read: live API signal + fixed probes.
       const liveQuarter = await detectLiveQuarter();
       const probes = candidateProbes(liveQuarter);
@@ -935,17 +1200,8 @@ export const run = internalAction({
         return { ok: true, summary };
       }
 
-      // 3. One sources row per run — the newest file retrieved (provenance
-      //    for the run; per-fact notes carry their own quarter's file URL).
-      const sourceId = await ctx.runMutation(internal.ingest.lib.upsertSource, {
-        url: discovered[0].sourceUrl,
-        kind: "hdb",
-        publisher: "HDB — HDB Flat Portal (services-homes.hdb.gov.sg)",
-        title:
-          "Flat Supply & Applications Received — BTO application-rate JSON",
-      });
-
-      // 4. Match against what we already know.
+      // 3. Match against what we already know. Source rows are created/reused
+      //    transactionally with fact insertion below, never speculatively.
       const context = await ctx.runQuery(internal.ingest.hdb.listIngestContext, {});
       const townsByName = new Map(
         context.towns.map((t) => [normalizeName(t.name), t]),
@@ -955,7 +1211,7 @@ export const run = internalAction({
       );
       const takenSlugs = new Set(context.projects.map((p) => p.slug));
 
-      // 5. Upsert exercises, then match/create projects and apply facts.
+      // 4. Upsert exercises, then match/create projects and apply facts.
       for (const exercise of discovered) {
         const { isoDate } = sgtNow();
         const status: "upcoming" | "open" | "closed" = exercise.isFinalUpdate
@@ -1025,14 +1281,6 @@ export const run = internalAction({
             const projectId = shell.id;
             if (shell.created) {
               summary.rowsWritten++;
-              // Town watchers hear about new SBF supply in their town.
-              await ctx.runMutation(internal.alertsEngine.notifyProjectUpdate, {
-                projectId,
-                title: `SBF balance flats in ${town.name}`,
-                body:
-                  `${totalUnitsLine(project)} balance flats in ${town.name} were offered in the ${exercise.label} exercise. ` +
-                  `Wait and completion timing vary by individual flat. Check the pool before the window closes.`,
-              });
             }
 
             const mappable = project.soleUnits.filter(
@@ -1085,23 +1333,27 @@ export const run = internalAction({
               }
             }
 
-            for (const fact of facts) {
-              const result = await ctx.runMutation(
-                internal.ingest.lib.applyProjectFact,
-                {
-                  projectId,
-                  field: fact.field,
-                  value: fact.value,
-                  confidence: "official",
-                  extractionMethod: "parser",
-                  sourceId,
-                  ...(fact.note !== undefined ? { note: fact.note } : {}),
+            const applied = await ctx.runMutation(
+              internal.ingest.hdb.applyOfficialFactBatch,
+              {
+                projectId,
+                exerciseKey: exercise.key,
+                exerciseLabel: exercise.label,
+                kind: "sbf",
+                projectName: `${town.name} balance flats`,
+                townName: town.name,
+                source: {
+                  url: exercise.sourceUrl,
+                  publisher:
+                    "HDB — HDB Flat Portal (services-homes.hdb.gov.sg)",
+                  title: `Flat Supply & Applications Received — SBF${exercise.quarter} application-rate JSON`,
                 },
-              );
-              if (result === "inserted") summary.factsInserted++;
-              else if (result === "unchanged") summary.factsUnchanged++;
-              else summary.factsConflicts++;
-            }
+                facts,
+              },
+            );
+            summary.factsInserted += applied.inserted;
+            summary.factsUnchanged += applied.unchanged;
+            summary.factsConflicts += applied.conflicts;
             continue;
           }
 
@@ -1126,30 +1378,67 @@ export const run = internalAction({
               slug = `${slugify(project.name)}-${suffix++}`;
             }
 
-            // Reconciliation: a pre-seeded "announced" row for this
-            // exercise+town gets adopted (identity upgraded in place) instead
-            // of duplicated. Ambiguous multi-shell towns defer to human
-            // reconciliation with a loud job note.
-            const adoption = await ctx.runMutation(internal.ingest.hdb.adoptAnnouncedShell, {
-              exerciseId: exerciseResult.id,
-              townId: town._id,
-              slug,
-              name: project.name,
-              classification: project.classification,
-              ...(exercise.applicationEnd !== null
-                ? { applicationDeadline: exercise.applicationEnd }
-                : {}),
-            });
+            // Reconciliation runs in bounded phases: identify, migrate each
+            // page of old-slug watches, then revalidate and finalize.
+            const adoption = await ctx.runQuery(
+              internal.ingest.hdb.findAnnouncedShell,
+              {
+                exerciseId: exerciseResult.id,
+                townId: town._id,
+              },
+            );
             if (adoption.ambiguous) {
               summary.errors.push(
                 `reconcile needed: "${project.name}" (${project.town}, ${exercise.key}) matches multiple announced shells — created new row, human merge required`,
               );
             }
-            if (adoption.id) {
-              projectId = adoption.id;
+            if (adoption.shellId && adoption.oldSlug !== null) {
+              let cursor: string | undefined;
+              let migrationDone = false;
+              for (let page = 0; page < 100; page++) {
+                const migration = await ctx.runMutation(
+                  internal.ingest.hdb.migrateAnnouncedProjectWatches,
+                  {
+                    shellId: adoption.shellId,
+                    oldSlug: adoption.oldSlug,
+                    newSlug: slug,
+                    newName: project.name,
+                    limit: 50,
+                    ...(cursor !== undefined ? { cursor } : {}),
+                  },
+                );
+                if (migration.done) {
+                  migrationDone = true;
+                  break;
+                }
+                if (migration.cursor === null) {
+                  throw new Error("Watch migration returned no continuation cursor");
+                }
+                cursor = migration.cursor;
+              }
+              if (!migrationDone) {
+                throw new Error(
+                  `Watch migration exceeded 5,000 rows for announced shell ${adoption.shellId}`,
+                );
+              }
+              projectId = await ctx.runMutation(
+                internal.ingest.hdb.finalizeAnnouncedShellAdoption,
+                {
+                  shellId: adoption.shellId,
+                  exerciseId: exerciseResult.id,
+                  townId: town._id,
+                  oldSlug: adoption.oldSlug,
+                  slug,
+                  name: project.name,
+                  classification: project.classification,
+                  ...(exercise.applicationEnd !== null
+                    ? { applicationDeadline: exercise.applicationEnd }
+                    : {}),
+                },
+              );
               takenSlugs.add(slug);
               projectsByNameTown.set(`${normalizeName(project.name)}|${town._id}`, {
-                _id: adoption.id,
+                _id: projectId,
                 slug,
                 name: project.name,
                 townId: town._id,
@@ -1237,25 +1526,32 @@ export const run = internalAction({
             }
           }
 
-          for (const fact of facts) {
-            const result = await ctx.runMutation(
-              internal.ingest.lib.applyProjectFact,
-              {
-                projectId,
-                field: fact.field,
-                value: fact.value,
-                confidence: "official",
-                extractionMethod: "parser",
-                sourceId,
-                ...(fact.note !== undefined ? { note: fact.note } : {}),
+          const applied = await ctx.runMutation(
+            internal.ingest.hdb.applyOfficialFactBatch,
+            {
+              projectId,
+              exerciseKey: exercise.key,
+              exerciseLabel: exercise.label,
+              kind: "bto",
+              projectName: project.name,
+              townName: town.name,
+              source: {
+                url: exercise.sourceUrl,
+                publisher:
+                  "HDB — HDB Flat Portal (services-homes.hdb.gov.sg)",
+                title: `Flat Supply & Applications Received — BTO${exercise.quarter} application-rate JSON`,
               },
-            );
-            if (result === "inserted") summary.factsInserted++;
-            else if (result === "unchanged") summary.factsUnchanged++;
-            else summary.factsConflicts++;
-          }
+              facts,
+            },
+          );
+          summary.factsInserted += applied.inserted;
+          summary.factsUnchanged += applied.unchanged;
+          summary.factsConflicts += applied.conflicts;
         }
       }
+
+      // Queue another durable worker for events created by this pass.
+      await requestAlertDrain(ctx);
 
       await ctx.runMutation(internal.ingest.lib.finishJob, {
         jobId,
