@@ -277,7 +277,9 @@ export default function DesignSystemPage() {
           </div>
           <div className="flex items-center gap-2">
             <Checkbox id="alerts" defaultChecked />
-            <Label htmlFor="alerts">Email me when this launch updates</Label>
+            <Label htmlFor="alerts">
+              Alert me in app when official project data changes
+            </Label>
           </div>
         </div>
       </Section>

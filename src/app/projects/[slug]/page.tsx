@@ -64,6 +64,7 @@ export default async function ProjectPage({ params }: Props) {
   const townName = town?.name ?? project.region;
   const isAnnounced = project.lifecycleStatus === "announced";
   const isSbf = project.saleType === "sbf";
+  const hasPublishedPrice = flatTypes.some((flat) => flat.minPrice > 0);
   const plannerPrompt = `What should I know about ${project.name} (${isSbf ? "SBF" : "BTO"})? Explain the fit, trade-offs and any missing data.`;
 
   // Announced and SBF rows have no usable prices to compare against (0 =
@@ -220,12 +221,12 @@ export default async function ProjectPage({ params }: Props) {
         <ProjectLocation details={details} />
       </Section>
 
-      {!isSbf && flatTypes.length > 0 ? (
+      {!isSbf && !isAnnounced && hasPublishedPrice ? (
         <Section
-          title="Indicative affordability"
-          description="A worked example from the lowest-priced flat type."
+          title="Plan affordability"
+          description="Compare transparent HDB and financial-institution loan scenarios."
         >
-          <Affordability details={details} />
+          <Affordability flatTypes={flatTypes} />
         </Section>
       ) : null}
 
