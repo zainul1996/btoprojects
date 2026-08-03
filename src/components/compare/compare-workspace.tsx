@@ -34,7 +34,9 @@ function fromPriceOf(summary: ProjectSummary): number | null {
 }
 
 function mrtWalkOf(summary: ProjectSummary): number | null {
-  return summary.project.nearestMrt.length
+  // 0 minutes means "unknown" (announced projects), not a zero-minute walk.
+  return summary.project.nearestMrt.length &&
+    summary.project.mrtWalkingMinutes > 0
     ? summary.project.mrtWalkingMinutes
     : null;
 }
@@ -110,9 +112,13 @@ const GROUPS: RowGroup[] = [
       {
         key: "wait",
         label: "Estimated wait",
-        metric: (s) => s.project.estimatedWaitMonths,
+        // 0 means "timeline TBC" (announced) — exclude from best-cell scoring.
+        metric: (s) => s.project.estimatedWaitMonths || null,
         cell: (s) => {
           const months = s.project.estimatedWaitMonths;
+          if (months <= 0) {
+            return <span className="text-muted-foreground">TBC</span>;
+          }
           const pct = Math.min(
             100,
             Math.round((months / WAIT_BAR_MAX_MONTHS) * 100),
@@ -137,11 +143,14 @@ const GROUPS: RowGroup[] = [
       {
         key: "completion",
         label: "Est. completion",
-        cell: (s) => (
-          <span className="tnum whitespace-nowrap">
-            {s.project.estimatedCompletion}
-          </span>
-        ),
+        cell: (s) =>
+          s.project.estimatedCompletion ? (
+            <span className="tnum whitespace-nowrap">
+              {s.project.estimatedCompletion}
+            </span>
+          ) : (
+            <span className="text-muted-foreground">TBC</span>
+          ),
       },
       {
         key: "units",
@@ -163,11 +172,13 @@ const GROUPS: RowGroup[] = [
         cell: (s) =>
           s.project.nearestMrt.length === 0 ? (
             <MutedDash />
-          ) : (
+          ) : s.project.mrtWalkingMinutes > 0 ? (
             <span>
               <span className="tnum">~{s.project.mrtWalkingMinutes}</span> min
               walk to {s.project.nearestMrt[0]}
             </span>
+          ) : (
+            <span>Near {s.project.nearestMrt[0]}</span>
           ),
       },
       {
@@ -218,7 +229,8 @@ function computeGiveUps(projects: ProjectSummary[]): Map<string, string[]> {
   if (projects.length < 2) return result;
 
   const metrics: { label: string; value: (s: ProjectSummary) => number | null }[] = [
-    { label: "The wait", value: (s) => s.project.estimatedWaitMonths },
+    // 0-month wait is "TBC" (announced), never a real trade-off input.
+    { label: "The wait", value: (s) => s.project.estimatedWaitMonths || null },
     { label: "The price premium", value: fromPriceOf },
     { label: "The walk to the MRT", value: mrtWalkOf },
   ];

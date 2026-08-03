@@ -38,6 +38,7 @@ export function ProjectCard({
   className?: string;
 }) {
   const { project, town, flatTypes } = summary;
+  const isAnnounced = project.lifecycleStatus === "announced";
   const fromPrice = flatTypes.length
     ? Math.min(...flatTypes.map((f) => f.minPrice))
     : null;
@@ -83,21 +84,29 @@ export function ProjectCard({
 
         <div className="flex items-end justify-between gap-3">
           <div>
-            {fromPrice !== null && (
+            {fromPrice !== null ? (
               <p className="text-lg font-semibold text-ink">
                 <span className="text-sm font-normal text-muted-foreground">From </span>
                 <Price value={fromPrice} />
               </p>
-            )}
+            ) : isAnnounced ? (
+              <p className="text-sm font-medium text-muted-foreground">
+                Prices at launch
+              </p>
+            ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
               <span className="inline-flex items-center gap-1">
                 <Clock3 className="size-3.5" aria-hidden />
-                ~{project.estimatedWaitMonths} mo wait
+                {project.estimatedWaitMonths > 0
+                  ? `~${project.estimatedWaitMonths} mo wait`
+                  : "Timeline TBC"}
               </span>
               {project.nearestMrt.length > 0 && (
                 <span className="inline-flex items-center gap-1">
                   <TrainFront className="size-3.5" aria-hidden />
-                  ~{project.mrtWalkingMinutes} min to {project.nearestMrt[0]}
+                  {project.mrtWalkingMinutes > 0
+                    ? `~${project.mrtWalkingMinutes} min to ${project.nearestMrt[0]}`
+                    : `Near ${project.nearestMrt[0]}`}
                 </span>
               )}
             </div>

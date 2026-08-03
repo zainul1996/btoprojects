@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
+import { Info } from "lucide-react";
 
 import { api } from "../../../../convex/_generated/api";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
@@ -61,12 +62,17 @@ export default async function ProjectPage({ params }: Props) {
 
   const { project, town, exercise, flatTypes } = details;
   const townName = town?.name ?? project.region;
+  const isAnnounced = project.lifecycleStatus === "announced";
 
-  const comparables = await fetchQuery(api.projects.comparables, {
-    projectId: project._id,
-    flatTypes: flatTypes.map((f) => f.type),
-    asOfMonth: currentMonth(),
-  });
+  // Announced projects have no prices to compare against — skip the fetch
+  // and render a placeholder in the section below.
+  const comparables = isAnnounced
+    ? null
+    : await fetchQuery(api.projects.comparables, {
+        projectId: project._id,
+        flatTypes: flatTypes.map((f) => f.type),
+        asOfMonth: currentMonth(),
+      });
 
   return (
     <div className="mx-auto max-w-5xl px-4 pb-16 md:px-6">
@@ -114,6 +120,16 @@ export default async function ProjectPage({ params }: Props) {
         <p className="max-w-3xl text-base text-muted-foreground">
           {project.description}
         </p>
+
+        {isAnnounced && project.notes ? (
+          <div
+            role="note"
+            className="flex max-w-3xl items-start gap-2.5 rounded-xl border border-navy/20 bg-navy/5 px-4 py-3"
+          >
+            <Info className="mt-0.5 size-4 shrink-0 text-navy" aria-hidden />
+            <p className="text-sm text-navy">{project.notes}</p>
+          </div>
+        ) : null}
       </header>
 
       <Section
@@ -134,18 +150,31 @@ export default async function ProjectPage({ params }: Props) {
         <ProjectLocation details={details} />
       </Section>
 
-      <Section
-        title="Indicative affordability"
-        description="A worked example from the lowest-priced flat type."
-      >
-        <Affordability details={details} />
-      </Section>
+      {flatTypes.length > 0 ? (
+        <Section
+          title="Indicative affordability"
+          description="A worked example from the lowest-priced flat type."
+        >
+          <Affordability details={details} />
+        </Section>
+      ) : null}
 
       <Section
         title="Comparable resale"
         description={`What resale flats are actually transacting for in ${townName}.`}
       >
-        <ComparableResale townName={townName} comparables={comparables} />
+        {comparables ? (
+          <ComparableResale townName={townName} comparables={comparables} />
+        ) : (
+          <Card>
+            <CardContent className="p-5 md:p-6">
+              <p className="text-sm text-muted-foreground">
+                Resale comparisons arrive at launch — they need the official
+                price list to compare against.
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </Section>
 
       <Section title="Lifecycle">

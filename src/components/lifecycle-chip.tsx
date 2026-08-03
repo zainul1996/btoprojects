@@ -12,7 +12,8 @@ export type LifecycleStage =
 /**
  * Lifecycle pill. Stages differ by dot treatment (hollow/solid/neutral) as
  * well as colour family, so they read without relying on colour alone:
- * announced/launched teal-family, construction neutral, sbf navy, mop muted.
+ * announced navy (hollow dot — matches the upcoming-exercise chip), launched
+ * teal, construction neutral, sbf navy, mop muted.
  */
 const STAGES: Record<
   LifecycleStage,
@@ -20,8 +21,8 @@ const STAGES: Record<
 > = {
   announced: {
     label: "Announced",
-    chip: "border-teal-deep/20 bg-teal-subtle/50 text-teal-deeper",
-    dot: "border-[1.5px] border-teal-deep bg-transparent",
+    chip: "border-navy/20 bg-navy/5 text-navy",
+    dot: "border-[1.5px] border-navy bg-transparent",
   },
   launched: {
     label: "Launched",

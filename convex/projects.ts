@@ -92,7 +92,10 @@ export const list = query({
       if (region && project.region !== region) return false;
       if (
         maxWaitMonths !== undefined &&
-        project.estimatedWaitMonths > maxWaitMonths
+        // Announced projects carry 0 = "Timeline TBC"; unknown never
+        // satisfies an explicit wait ceiling.
+        (project.estimatedWaitMonths > maxWaitMonths ||
+          project.lifecycleStatus === "announced")
       )
         return false;
       if (flatType && !flatTypes.some((f) => f.type === flatType))

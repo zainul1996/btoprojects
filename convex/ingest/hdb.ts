@@ -489,6 +489,61 @@ const createProjectShellArgs = {
   applicationDeadline: v.optional(v.string()),
   notes: v.optional(v.string()),
 };
+
+/**
+ * Reconciliation for pre-seeded "announced" projects (e.g. the October 2026
+ * working-title rows): when the real launch data arrives, upgrade the
+ * announced row in place instead of creating a duplicate.
+ *
+ * Adoption is only automatic when the town has exactly ONE announced shell —
+ * an unambiguous 1:1 match. Multi-shell towns (e.g. Bayshore I/II) are left
+ * for human reconciliation and reported by the caller as conflicts, because
+ * pairing without reliable per-project unit splits could swap identities.
+ */
+export const adoptAnnouncedShell = internalMutation({
+  args: {
+    exerciseId: v.id("exercises"),
+    townId: v.id("towns"),
+    slug: v.string(),
+    name: v.string(),
+    classification: classificationValidator,
+    applicationDeadline: v.optional(v.string()),
+  },
+  returns: v.object({
+    id: v.union(v.id("projects"), v.null()),
+    ambiguous: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    const announced = (
+      await ctx.db
+        .query("projects")
+        .withIndex("by_exercise", (q) => q.eq("exerciseId", args.exerciseId))
+        .collect()
+    ).filter(
+      (p) => p.townId === args.townId && p.lifecycleStatus === "announced",
+    );
+
+    if (announced.length === 0) return { id: null, ambiguous: false };
+    if (announced.length > 1) return { id: null, ambiguous: true };
+
+    const shell = announced[0]!;
+    await ctx.db.patch("projects", shell._id, {
+      slug: args.slug,
+      name: args.name,
+      classification: args.classification,
+      lifecycleStatus: "launched",
+      ...(args.applicationDeadline !== undefined
+        ? { applicationDeadline: args.applicationDeadline }
+        : {}),
+      notes:
+        `${shell.notes ?? ""}\nReconciled: launch ingestion adopted this announced row as ` +
+        `"${args.name}" (working title was "${shell.name}"). Announced unit count kept; ` +
+        `launch facts apply via projectFacts.`,
+      updatedAt: Date.now(),
+    });
+    return { id: shell._id, ambiguous: false };
+  },
+});
 const createProjectShellReturns = v.object({
   id: v.id("projects"),
   created: v.boolean(),
@@ -676,33 +731,74 @@ export const run = internalAction({
               slug = `${slugify(project.name)}-${suffix++}`;
             }
 
-            const shell = await ctx.runMutation(internal.ingest.hdb.createProjectShell, {
+            // Reconciliation: a pre-seeded "announced" row for this
+            // exercise+town gets adopted (identity upgraded in place) instead
+            // of duplicated. Ambiguous multi-shell towns defer to human
+            // reconciliation with a loud job note.
+            const adoption = await ctx.runMutation(internal.ingest.hdb.adoptAnnouncedShell, {
+              exerciseId: exerciseResult.id,
+              townId: town._id,
               slug,
               name: project.name,
-              townId: town._id,
-              exerciseId: exerciseResult.id,
-              region: town.region,
               classification: project.classification,
-              description:
-                `${project.name} is a ${project.classification}-classification BTO project in ${town.name}, ` +
-                `offered in the ${exercise.label} sales exercise. ` +
-                `Shell record from automated HDB launch ingestion; units, pricing, coordinates and completion dates pending enrichment.`,
               ...(exercise.applicationEnd !== null
                 ? { applicationDeadline: exercise.applicationEnd }
                 : {}),
-              notes:
-                `Auto-created shell from HDB Flat Portal application-rate data (BTO${exercise.quarter}). ` +
-                `lat/lng/totalUnits/estimatedWaitMonths/estimatedCompletion are placeholders pending geocode and launch-detail enrichment.`,
             });
-            projectId = shell.id;
-            takenSlugs.add(slug);
-            projectsByNameTown.set(`${normalizeName(project.name)}|${town._id}`, {
-              _id: shell.id,
-              slug,
-              name: project.name,
-              townId: town._id,
-            });
-            if (shell.created) summary.rowsWritten++;
+            if (adoption.ambiguous) {
+              summary.errors.push(
+                `reconcile needed: "${project.name}" (${project.town}, ${exercise.key}) matches multiple announced shells — created new row, human merge required`,
+              );
+            }
+            if (adoption.id) {
+              projectId = adoption.id;
+              takenSlugs.add(slug);
+              projectsByNameTown.set(`${normalizeName(project.name)}|${town._id}`, {
+                _id: adoption.id,
+                slug,
+                name: project.name,
+                townId: town._id,
+              });
+              summary.rowsWritten++;
+              console.log(
+                JSON.stringify({
+                  fn: "ingest/hdb.run",
+                  adopted: project.name,
+                  town: town.name,
+                  exercise: exercise.key,
+                }),
+              );
+            }
+
+            if (!projectId) {
+              const shell = await ctx.runMutation(internal.ingest.hdb.createProjectShell, {
+                slug,
+                name: project.name,
+                townId: town._id,
+                exerciseId: exerciseResult.id,
+                region: town.region,
+                classification: project.classification,
+                description:
+                  `${project.name} is a ${project.classification}-classification BTO project in ${town.name}, ` +
+                  `offered in the ${exercise.label} sales exercise. ` +
+                  `Shell record from automated HDB launch ingestion; units, pricing, coordinates and completion dates pending enrichment.`,
+                ...(exercise.applicationEnd !== null
+                  ? { applicationDeadline: exercise.applicationEnd }
+                  : {}),
+                notes:
+                  `Auto-created shell from HDB Flat Portal application-rate data (BTO${exercise.quarter}). ` +
+                  `lat/lng/totalUnits/estimatedWaitMonths/estimatedCompletion are placeholders pending geocode and launch-detail enrichment.`,
+              });
+              projectId = shell.id;
+              takenSlugs.add(slug);
+              projectsByNameTown.set(`${normalizeName(project.name)}|${town._id}`, {
+                _id: shell.id,
+                slug,
+                name: project.name,
+                townId: town._id,
+              });
+              if (shell.created) summary.rowsWritten++;
+            }
           }
 
           // Facts: only what the source actually states, all confidence

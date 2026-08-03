@@ -17,7 +17,8 @@ function suitBullets(details: ProjectDetails): string[] {
   const townName = town?.name ?? project.region;
   const bullets: string[] = [];
 
-  if (project.estimatedWaitMonths <= 30) {
+  // 0 means "timeline TBC" (announced) — never quote it as a short wait.
+  if (project.estimatedWaitMonths > 0 && project.estimatedWaitMonths <= 30) {
     bullets.push(
       `Buyers who need keys sooner: the estimated wait is ~${project.estimatedWaitMonths} months, shorter than most recent launches.`,
     );

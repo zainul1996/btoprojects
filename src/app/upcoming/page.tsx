@@ -129,7 +129,7 @@ export default async function UpcomingPage() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-ink">
-                  October 2026 BTO exercise
+                  February 2027 BTO exercise
                 </h3>
                 <p className="mt-1 text-sm text-muted-foreground">
                   HDB typically runs exercises in February, June and October.

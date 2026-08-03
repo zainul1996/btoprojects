@@ -17,6 +17,12 @@ export type ProjectMapItem = {
   name: string;
   lat: number;
   lng: number;
+  /**
+   * "announced" projects render as a soft area halo, not a point pin — the
+   * coordinates are MRT-anchored approximations until HDB publishes the
+   * exact site at launch.
+   */
+  lifecycleStatus?: string;
   fromPrice?: number | null;
   townName?: string;
   /** Extra meta line content, appended after town · price when set. */
@@ -104,6 +110,13 @@ export function ProjectMap({
       root.appendChild(meta);
     }
 
+    if (p.lifecycleStatus === "announced") {
+      const note = document.createElement("p");
+      note.className = "bto-map-popup__note";
+      note.textContent = "Location approximate — exact site at launch";
+      root.appendChild(note);
+    }
+
     const link = document.createElement("a");
     link.className = "bto-map-popup__link";
     link.href = `/projects/${p.slug}`;
@@ -130,11 +143,25 @@ export function ProjectMap({
   }
 
   function createMarker(p: ProjectMapItem): maplibregl.Marker {
+    const isAnnounced = p.lifecycleStatus === "announced";
     const el = document.createElement("button");
     el.type = "button";
     el.className = "bto-map-marker";
     el.dataset.focused = "false";
-    el.setAttribute("aria-label", `${p.name} — show on map`);
+    if (isAnnounced) el.dataset.variant = "area";
+    el.setAttribute(
+      "aria-label",
+      isAnnounced
+        ? `${p.name} (announced, approximate location) — show on map`
+        : `${p.name} — show on map`,
+    );
+
+    if (isAnnounced) {
+      const halo = document.createElement("span");
+      halo.className = "bto-map-marker__halo";
+      halo.setAttribute("aria-hidden", "true");
+      el.appendChild(halo);
+    }
 
     const dot = document.createElement("span");
     dot.className = "bto-map-marker__dot";

@@ -25,7 +25,7 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | F1.1 | Convex schema v1 (17 tables) | Done | commit a773993; projectVersions/reviewQueue deferred (D-be3) |
 | F1.2 | Snapshot storage with content hashing | Deferred | Needs Blob/R2; arrives with live HDB ingestion phase |
 | F1.3 | HDB launch/project page adapter | Done (v1) | Official Flat Portal apprates JSON (`services-homes.hdb.gov.sg`, robots-allowed): exercise windows, classification, flat supply. No prices/completion/coords in source — MyNiceHome parser remains the future track for those |
-| F1.4 | HDB announcements adapter | Deferred | Pre-launch discovery needs press-release parsing; www.hdb.gov.sg WAF-blocks agents |
+| F1.4 | HDB announcements adapter | In progress | Gap proven real (Oct 2026 announced 17 Jun, apprates JSON silent). Interim: verified manual seed per announcement (D-ing4). Planned: weekly MyNiceHome upcoming-page crawl + LLM extraction (official portal, no WAF) |
 | F1.5 | data.gov.sg adapters | Done | Resale v2 (`convex/ingest/resale.ts`): all towns, incremental month-replace, kv cursor; 237k rows/115 months available. Schools: legacy built, not run |
 | F1.6 | OneMap client (token cache + auto-refresh, geocode) | Done | 72h JWT cached in kv table, cron refresh; ingestion geocoder re-auths on expiry (env tokens expire) |
 | F1.7 | LLM fallback extraction | Deferred | With HDB parser phase |
@@ -45,7 +45,7 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | F2.4 | Exercise pages (/bto/[exercise]) | Done | Stats + grid, soft-404 for unknown keys |
 | F2.5 | Town pages (/bto/town/[town]) | Done | Watch-town CTA (signature loop) |
 | F2.6 | MRT catchment pages (/bto/near-[mrt]-mrt) | Not started | Backend `mrt.projectsNear` ready; page pending |
-| F2.7 | Upcoming page (official vs inferred) | Done | Oct 2026 card labelled Analysis — guardrail satisfied |
+| F2.7 | Upcoming page (official vs inferred) | Done | October 2026 official (7 announced projects seeded, D-ing4); rhythm card now covers Feb 2027, labelled Analysis |
 | F2.8 | Search + filter URL state | Done | |
 | F2.9 | Mobile map UX | Done | Map top + natural-scroll list (bottom-sheet drag simplified away deliberately) |
 | F2.10 | "Last verified" + provenance badges on all fact surfaces | Done | |

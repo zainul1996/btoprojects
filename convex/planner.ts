@@ -100,10 +100,12 @@ export const clearSession = authedMutation({
 export const allForRanking = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Exclude ingestion shells (totalUnits 0 placeholder) — no supply/price/
-    // completion data yet, so they would only pollute rankings.
+    // Exclude ingestion shells (totalUnits 0 placeholder) and announced-only
+    // projects (no prices yet — budget scoring would mislead). Announced
+    // projects return to rankings the day launch data lands.
     const projects = (await ctx.db.query("projects").collect()).filter(
-      (project) => project.totalUnits > 0,
+      (project) =>
+        project.totalUnits > 0 && project.lifecycleStatus !== "announced",
     );
     return await Promise.all(
       projects.map(async (project) => {
@@ -152,9 +154,11 @@ export const forRanking = query({
   args: {},
   returns: v.array(rankableProjectValidator),
   handler: async (ctx) => {
-    // Same shell exclusion as allForRanking (placeholder totalUnits 0).
+    // Same exclusions as allForRanking: placeholder shells (totalUnits 0)
+    // and announced-only projects (no prices to rank on).
     const projects = (await ctx.db.query("projects").collect()).filter(
-      (project) => project.totalUnits > 0,
+      (project) =>
+        project.totalUnits > 0 && project.lifecycleStatus !== "announced",
     );
     return await Promise.all(
       projects.map(async (project) => {

@@ -40,8 +40,38 @@
   outline-offset: 1px;
 }
 
-.bto-map-marker[data-focused="true"] {
+/* Layering: announced area halos sit under launched point markers; the
+   focused marker always floats above both. */
+.bto-map-marker[data-variant="area"] {
+  z-index: 0;
+  padding: 12px; /* hit target covers the 34px halo */
+}
+
+.bto-map-marker:not([data-variant="area"]) {
   z-index: 1;
+}
+
+.bto-map-marker[data-focused="true"] {
+  z-index: 2;
+}
+
+/* Announced projects: a large, soft halo behind the dot — the marker reads
+   as an approximate area, not an exact pin (site published at launch). */
+.bto-map-marker__halo {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: 34px;
+  transform: translate(-50%, -50%);
+  border-radius: 9999px;
+  background: color-mix(in oklab, var(--navy) 10%, transparent);
+  border: 1.5px solid color-mix(in oklab, var(--navy) 30%, transparent);
+  pointer-events: none;
+}
+
+.bto-map-marker[data-variant="area"] .bto-map-marker__dot {
+  background: var(--navy);
 }
 
 /* Popup — calm card on the warm surface, ink text, teal link. */
@@ -83,6 +113,15 @@
   font-size: 0.75rem;
   color: var(--muted-foreground);
   font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* Caveat line for announced markers — separated from the facts above it. */
+.bto-map-popup__note {
+  margin: 6px 0 0;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
 }
 
 .bto-map-popup__link {

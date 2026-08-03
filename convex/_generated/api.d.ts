@@ -34,6 +34,7 @@ import type * as profile from "../profile.js";
 import type * as projects from "../projects.js";
 import type * as seed from "../seed.js";
 import type * as seedData from "../seedData.js";
+import type * as seedOct2026 from "../seedOct2026.js";
 import type * as telegram from "../telegram.js";
 import type * as towns from "../towns.js";
 import type * as users from "../users.js";
@@ -72,6 +73,7 @@ declare const fullApi: ApiFromModules<{
   projects: typeof projects;
   seed: typeof seed;
   seedData: typeof seedData;
+  seedOct2026: typeof seedOct2026;
   telegram: typeof telegram;
   towns: typeof towns;
   users: typeof users;

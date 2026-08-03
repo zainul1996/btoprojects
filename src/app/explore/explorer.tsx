@@ -189,8 +189,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
     );
     switch (sort) {
       case "wait":
+        // 0 means "timeline TBC" (announced projects) — sort unknowns last,
+        // never first as a misleadingly short wait.
         narrowed.sort(
-          (a, b) => a.project.estimatedWaitMonths - b.project.estimatedWaitMonths,
+          (a, b) =>
+            (a.project.estimatedWaitMonths || Infinity) -
+            (b.project.estimatedWaitMonths || Infinity),
         );
         break;
       case "name":
@@ -211,6 +215,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
         name: project.name,
         lat: project.lat,
         lng: project.lng,
+        lifecycleStatus: project.lifecycleStatus,
         fromPrice: flatTypes.length
           ? Math.min(...flatTypes.map((f) => f.minPrice))
           : null,
