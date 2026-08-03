@@ -4,7 +4,7 @@ Single source of truth for implementation status. Update this file whenever work
 
 Statuses: `Not started` · `In progress` · `Blocked` · `In review` · `Done` · `Deferred`
 
-Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
+Last updated: 3 Aug 2026 (launch-readiness SEO pass complete)
 
 ## Phase 0 — Foundation
 
@@ -70,7 +70,7 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | F4.2 | Transparent weighted ranking + breakdowns | Done | Deterministic 4-factor score; user-adjustable weights → V1 |
 | F4.3 | Cited AI answers ([slug] links only from cited set) | Done | Verified: all 5 narrations cited in round-trip test |
 | F4.4 | Planner surface | Done | Full-page chat (mobile + desktop); docked side-panel variant → later |
-| F4.5 | SEO hardening | In review | Metadata + canonicals + SSR facts done; sitemap.xml + structured data (BreadcrumbList) pending |
+| F4.5 | SEO hardening | Done | Canonicals, robots, resilient sitemap, WebSite/FAQ/AboutPage/CollectionPage/ItemPage/BreadcrumbList schema, dynamic project social previews, methodology and direct internal links |
 | F4.6 | Analytics (Vercel Web Analytics + events) | Not started | Post-local phase |
 | F4.7 | Backfill → 50–100 pages | In review | Currently: 12 BTO projects + 24 SBF pools + 27 towns + exercises + tools ≈ 70 indexable routes |
 | F4.8 | SBF platform-wide integration | In review | Feb 2026 SBF ingested (24 towns / 4,320 units / 80 rows, matches HDB press release); saleType spine, explore filter + area markers + badges, /sbf/[exercise] board, town sections, project-page variant, Expected-next-SBF card (Feb 2027), planner tools/prompts, town-watch alerts |
@@ -100,3 +100,4 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 |---|---|
 | 2 Aug 2026 | Tracker created; F0.1–F0.2 done |
 | 2 Aug 2026 | **First autonomous multi-agent build complete** (8 agents: research → scaffold → design system → backend → explorer/pages/workspace → validation). Live local app: 12 real seeded projects w/ provenance, explorer+map, full blueprint pages, compare workspace, watchlist + Telegram alerts (verified), grounded planner w/ citations, 696 real resale rows. All gates green; commits through d01c5f0 on main. Pending from validation: fixes (if any), sitemap/structured data, then docs sync. |
+| 3 Aug 2026 | SEO launch-readiness pass complete: consistent canonical metadata, production-aware robots, resilient sitemap with social images, structured data across public content families, visible source methodology, data.gov.sg licence attribution, direct internal links and project-specific Open Graph/Twitter images. Lint, typecheck, tests and production build pass. |

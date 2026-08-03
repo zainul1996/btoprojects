@@ -12,7 +12,7 @@ export default function ProjectNotFound() {
         title="We don't track a project by that name"
         hint="It may not have launched yet, or the link has changed. Browse every project we follow."
         action={
-          <Button render={<Link href="/projects" />} nativeButton={false}>
+          <Button render={<Link href="/explore" />} nativeButton={false}>
             Browse all projects
           </Button>
         }

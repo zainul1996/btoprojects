@@ -3,12 +3,15 @@ import { auth } from "@clerk/nextjs/server";
 
 import { PageHeader } from "@/components/page-header";
 import { WatchlistClient } from "@/components/watchlist/watchlist-client";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "Saved & alerts",
   description:
     "Projects, towns and MRT stations you follow on BTOProjects.sg, plus the alerts they trigger.",
-};
+  path: "/watchlist",
+  index: false,
+});
 
 export default async function WatchlistPage({
   searchParams,

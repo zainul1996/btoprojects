@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { Info, Sparkles } from "lucide-react";
 
@@ -21,38 +20,33 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WatchButton } from "@/components/watch-button";
+import { getProjectDetails } from "@/lib/project-data";
+import { createPageMetadata } from "@/lib/seo";
 
 type Props = { params: Promise<{ slug: string }> };
-
-// Dedupes the Convex fetch between generateMetadata and the page render.
-const getProjectDetails = cache(async (slug: string) =>
-  fetchQuery(api.projects.getBySlug, { slug }),
-);
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const details = await getProjectDetails(slug);
   if (!details) {
-    return { title: "Project not found | BTOProjects.sg" };
+    return createPageMetadata({
+      title: "Project not found",
+      description: "This BTO or SBF project page is not available.",
+      path: `/projects/${slug}`,
+      index: false,
+    });
   }
   const { project, town } = details;
   const townName = town?.name ?? project.region;
   const isSbf = project.saleType === "sbf";
   const title = isSbf
-    ? `${project.name} — Sale of Balance Flats | BTOProjects.sg`
-    : `${project.name} — ${townName} BTO | BTOProjects.sg`;
-  return {
-    metadataBase: new URL("https://btoprojects.sg"),
+    ? `${project.name}: Sale of Balance Flats in ${townName}`
+    : `${project.name}: ${townName} BTO project`;
+  return createPageMetadata({
     title,
     description: project.description,
-    alternates: { canonical: `/projects/${project.slug}` },
-    openGraph: {
-      title,
-      description: project.description,
-      url: `/projects/${project.slug}`,
-      type: "article",
-    },
-  };
+    path: `/projects/${project.slug}`,
+  });
 }
 
 /** Current month as "YYYY-MM", computed on the server per request. */
@@ -89,7 +83,7 @@ export default async function ProjectPage({ params }: Props) {
           aria-label="Breadcrumb"
           className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground [&_a]:text-muted-foreground [&_a]:hover:text-teal-deep"
         >
-          <Link href="/projects">Projects</Link>
+          <Link href="/explore">Projects</Link>
           {exercise ? (
             <>
               <span aria-hidden>/</span>

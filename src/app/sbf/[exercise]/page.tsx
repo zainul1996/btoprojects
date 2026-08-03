@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { CalendarClock, ExternalLink } from "lucide-react";
 
@@ -18,6 +19,13 @@ import { Stat } from "@/components/stat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { JsonLd } from "@/components/seo/json-ld";
+import {
+  absoluteUrl,
+  breadcrumbJsonLd,
+  createPageMetadata,
+  SITE_URL,
+} from "@/lib/seo";
 
 type Props = { params: Promise<{ exercise: string }> };
 
@@ -26,9 +34,9 @@ type Board = Awaited<ReturnType<typeof fetchBoard>>;
 // the element type is what matters here.
 type BoardRow = Board["rows"][number];
 
-async function fetchBoard(key: string) {
-  return await fetchQuery(api.exercises.sbfBoard, { exerciseKey: key });
-}
+const fetchBoard = cache(async (key: string) =>
+  fetchQuery(api.exercises.sbfBoard, { exerciseKey: key }),
+);
 
 /** Rows grouped by town, town order alphabetical (board arrives pre-sorted). */
 function groupByTown(rows: BoardRow[]) {
@@ -54,26 +62,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { exercise: key } = await params;
   const board = await fetchBoard(key);
   if (!board.exercise || board.exercise.type !== "sbf") {
-    return { title: "SBF exercise | BTOProjects.sg" };
+    return createPageMetadata({
+      title: "SBF exercise not found",
+      description: "This HDB Sale of Balance Flats exercise is not available.",
+      path: `/sbf/${key}`,
+      index: false,
+    });
   }
   const { exercise, totals } = board;
-  const title = `${exercise.label} — Sale of Balance Flats | BTOProjects.sg`;
+  const title = `${exercise.label}: Sale of Balance Flats`;
   const description =
     totals.units > 0
       ? `${formatCount(totals.units)} balance flats across ${totals.towns} towns in the ${exercise.label} exercise: supply and applications by town and flat type.`
       : `${exercise.label}: Sale of Balance Flats. The town and flat-type list is revealed on launch day.`;
-  return {
-    metadataBase: new URL("https://btoprojects.sg"),
+  return createPageMetadata({
     title,
     description,
-    alternates: { canonical: `/sbf/${exercise.key}` },
-    openGraph: {
-      title,
-      description,
-      url: `/sbf/${exercise.key}`,
-      type: "website",
-    },
-  };
+    path: `/sbf/${exercise.key}`,
+  });
 }
 
 export default async function SbfExercisePage({ params }: Props) {
@@ -84,11 +90,35 @@ export default async function SbfExercisePage({ params }: Props) {
 
   const { exercise, rows, totals } = board;
   const towns = groupByTown(rows);
+  const path = `/sbf/${exercise.key}`;
+  const sbfJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${absoluteUrl(path)}#page`,
+    url: absoluteUrl(path),
+    name: `${exercise.label}: Sale of Balance Flats`,
+    description:
+      totals.units > 0
+        ? `${formatCount(totals.units)} balance flats across ${totals.towns} towns, grouped by town and flat type.`
+        : "Sale of Balance Flats exercise details, with the town and flat-type list added when HDB publishes it.",
+    numberOfItems: towns.length,
+    inLanguage: "en-SG",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
+      <JsonLd id="sbf-exercise-schema" data={sbfJsonLd} />
+      <JsonLd
+        id="sbf-exercise-breadcrumb-schema"
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Launch calendar", path: "/upcoming" },
+          { name: exercise.label, path },
+        ])}
+      />
       <PageHeader
-        breadcrumb={<Link href="/projects">Projects</Link>}
+        breadcrumb={<Link href="/explore">Projects</Link>}
         title={exercise.label}
         lede="Balance flats from earlier launches, sold by town and flat type rather than by project, and often completed or near completion."
       />

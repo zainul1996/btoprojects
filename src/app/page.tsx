@@ -18,12 +18,15 @@ import {
   CardDescription,
   CardHeader,
 } from "@/components/ui/card";
+import { JsonLd } from "@/components/seo/json-ld";
+import { absoluteUrl, createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
-  title: "BTOProjects.sg — Plan your HDB home with confidence",
+export const metadata: Metadata = createPageMetadata({
+  title: "Singapore BTO and SBF project guide",
   description:
-    "Plan around your budget and timeline, explore BTO projects and SBF town pools, and follow official HDB launch updates.",
-};
+    "Plan around your budget and timeline, compare BTO projects and SBF town pools, and follow official HDB launch updates.",
+  path: "/",
+});
 
 const HOME_TYPES = [
   {
@@ -38,9 +41,42 @@ const HOME_TYPES = [
   },
 ] as const;
 
+const HOME_FAQS = [
+  {
+    question: "What is an HDB BTO project?",
+    answer:
+      "Build-To-Order flats are new HDB homes launched in named projects. Each launch sets out the location, flat types, prices and expected completion timeline when those details are available.",
+  },
+  {
+    question: "How is Sale of Balance Flats different from BTO?",
+    answer:
+      "Sale of Balance Flats offers unsold or returned flats from earlier exercises. HDB lists them by town and flat type, and the exact block, remaining lease, price and completion stage can vary by flat.",
+  },
+  {
+    question: "Which information on BTOProjects.sg is official?",
+    answer:
+      "Facts from HDB, data.gov.sg and OneMap are labelled and linked to their source. Estimates and our analysis stay separate. BTOProjects.sg is independent and is not affiliated with HDB.",
+  },
+] as const;
+
+const homeFaqJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  url: absoluteUrl("/"),
+  mainEntity: HOME_FAQS.map((faq) => ({
+    "@type": "Question",
+    name: faq.question,
+    acceptedAnswer: {
+      "@type": "Answer",
+      text: faq.answer,
+    },
+  })),
+};
+
 export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
+      <JsonLd id="home-faq-schema" data={homeFaqJsonLd} />
       <section className="grid items-center gap-8 px-4 pt-10 pb-10 md:grid-cols-[minmax(0,1fr)_minmax(20rem,0.72fr)] md:gap-12 md:px-6 md:pt-20 md:pb-16">
         <div>
           <p className="text-sm font-medium text-teal-deep">
@@ -150,6 +186,35 @@ export default function HomePage() {
             </Button>
           </CardContent>
         </Card>
+      </Section>
+
+      <Section
+        title="Common BTO and SBF questions"
+        description="A short guide to the sales routes and how we label housing information."
+        className="border-t border-border px-4 md:px-6"
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          {HOME_FAQS.map((faq) => (
+            <Card key={faq.question} size="sm">
+              <CardHeader>
+                <h3 className="font-heading text-sm leading-snug font-medium">
+                  {faq.question}
+                </h3>
+                <CardDescription>{faq.answer}</CardDescription>
+              </CardHeader>
+            </Card>
+          ))}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Read our{" "}
+          <Link
+            href="/methodology"
+            className="font-medium text-teal-deep hover:underline"
+          >
+            data and source methodology
+          </Link>{" "}
+          for the full policy.
+        </p>
       </Section>
 
       <section className="mt-4 border-t border-border bg-muted/50">

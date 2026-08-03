@@ -1,3 +1,5 @@
+import Link from "next/link"
+
 function SiteFooter() {
   return (
     <footer className="border-t">
@@ -28,7 +30,36 @@ function SiteFooter() {
             Source data: Housing &amp; Development Board and data.gov.sg.
             Individual records cite their source and verification date.
           </p>
+          <p>
+            Resale data is made available under the{" "}
+            <a
+              href="https://data.gov.sg/open-data-licence"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-teal-deep hover:underline"
+            >
+              Singapore Open Data Licence version 1.0
+            </a>
+            .
+          </p>
         </div>
+        <nav
+          aria-label="Footer"
+          className="flex flex-wrap gap-x-5 gap-y-2 text-sm"
+        >
+          <Link href="/explore" className="hover:text-teal-deep hover:underline">
+            Explore projects
+          </Link>
+          <Link href="/upcoming" className="hover:text-teal-deep hover:underline">
+            Launch calendar
+          </Link>
+          <Link href="/compare" className="hover:text-teal-deep hover:underline">
+            Compare
+          </Link>
+          <Link href="/methodology" className="hover:text-teal-deep hover:underline">
+            Data methodology
+          </Link>
+        </nav>
         <p className="text-xs text-muted-foreground">
           © 2026 BTOProjects.sg
         </p>

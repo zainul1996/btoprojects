@@ -12,14 +12,16 @@ import { SourceBadge } from "@/components/source-badge";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { createPageMetadata } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  title: "Launch Calendar — BTOProjects.sg",
+export const metadata: Metadata = createPageMetadata({
+  title: "Singapore BTO and SBF launch calendar",
   description:
     "Track open, officially announced and previous HDB BTO and SBF exercises, with estimates kept clearly separate.",
-};
+  path: "/upcoming",
+});
 
 type ExerciseRow = FunctionReturnType<typeof api.exercises.list>[number];
 

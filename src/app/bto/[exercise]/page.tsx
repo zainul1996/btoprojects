@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { CalendarX } from "lucide-react";
 
@@ -20,33 +21,38 @@ import { Stat } from "@/components/stat";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { JsonLd } from "@/components/seo/json-ld";
+import {
+  absoluteUrl,
+  breadcrumbJsonLd,
+  createPageMetadata,
+  SITE_URL,
+} from "@/lib/seo";
 
 type Props = { params: Promise<{ exercise: string }> };
 
-async function resolveExercise(key: string) {
+const resolveExercise = cache(async (key: string) => {
   const rows = await fetchQuery(api.exercises.list, {});
   return rows.find((row) => row.exercise.key === key) ?? null;
-}
+});
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { exercise: key } = await params;
   const row = await resolveExercise(key);
   if (!row) {
-    return { title: "BTO exercise | BTOProjects.sg" };
+    return createPageMetadata({
+      title: "BTO exercise not found",
+      description: "This HDB BTO exercise is not available.",
+      path: `/bto/${key}`,
+      index: false,
+    });
   }
   const { exercise, projectCount } = row;
-  return {
-    metadataBase: new URL("https://btoprojects.sg"),
-    title: `${exercise.label} | BTOProjects.sg`,
-    description: `${projectCount} project${projectCount === 1 ? "" : "s"} in the ${exercise.label} launch: official prices, flat mix, waiting times and sources.`,
-    alternates: { canonical: `/bto/${exercise.key}` },
-    openGraph: {
-      title: `${exercise.label} | BTOProjects.sg`,
-      description: `${projectCount} projects in the ${exercise.label} launch, with provenance on every fact.`,
-      url: `/bto/${exercise.key}`,
-      type: "website",
-    },
-  };
+  return createPageMetadata({
+    title: `${exercise.label} BTO projects`,
+    description: `Explore ${projectCount} project${projectCount === 1 ? "" : "s"} in the ${exercise.label} launch, with available flat supply, prices, timing, location context and clearly labelled sources.`,
+    path: `/bto/${exercise.key}`,
+  });
 }
 
 export default async function ExercisePage({ params }: Props) {
@@ -64,7 +70,7 @@ export default async function ExercisePage({ params }: Props) {
           title={`No exercise called "${key}"`}
           hint="BTO exercises are keyed by year and month, for example /bto/2026-06. Browse everything we track."
           action={
-            <Button render={<Link href="/projects" />} nativeButton={false}>
+            <Button render={<Link href="/explore" />} nativeButton={false}>
               Browse all projects
             </Button>
           }
@@ -88,11 +94,32 @@ export default async function ExercisePage({ params }: Props) {
     .map((s) => fromPrice(s.flatTypes))
     .filter((price): price is number => price !== null);
   const lowestFrom = entryPrices.length ? Math.min(...entryPrices) : null;
+  const path = `/bto/${exercise.key}`;
+  const exerciseJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${absoluteUrl(path)}#page`,
+    url: absoluteUrl(path),
+    name: `${exercise.label} BTO projects`,
+    description: `${projects.length} BTO project${projects.length === 1 ? "" : "s"} tracked in this HDB sales exercise.`,
+    numberOfItems: projects.length,
+    inLanguage: "en-SG",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
+      <JsonLd id="bto-exercise-schema" data={exerciseJsonLd} />
+      <JsonLd
+        id="bto-exercise-breadcrumb-schema"
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Launch calendar", path: "/upcoming" },
+          { name: exercise.label, path },
+        ])}
+      />
       <PageHeader
-        breadcrumb={<Link href="/projects">Projects</Link>}
+        breadcrumb={<Link href="/explore">Projects</Link>}
         title={exercise.label}
         lede={
           exercise.applicationEnd

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
 import { MapPin } from "lucide-react";
 
@@ -7,12 +8,23 @@ import { api } from "../../../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectCard } from "@/components/project-card";
 import { SbfPoolCard } from "@/components/project/sbf-pool-card";
-import { decodeTownParam } from "@/components/project/utils";
+import { decodeTownParam, townHref } from "@/components/project/utils";
 import { Section } from "@/components/section";
 import { Badge } from "@/components/ui/badge";
 import { WatchButton } from "@/components/watch-button";
+import { JsonLd } from "@/components/seo/json-ld";
+import {
+  absoluteUrl,
+  breadcrumbJsonLd,
+  createPageMetadata,
+  SITE_URL,
+} from "@/lib/seo";
 
 type Props = { params: Promise<{ town: string }> };
+
+const getTownProjects = cache(async (townName: string) =>
+  fetchQuery(api.projects.listByTown, { townName }),
+);
 
 function townHeading(name: string, btoCount: number, sbfCount: number): string {
   if (btoCount > 0 && sbfCount > 0) return `BTO and SBF in ${name}`;
@@ -54,9 +66,7 @@ function townCountLabel(btoCount: number, sbfCount: number): string {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { town: param } = await params;
   const townName = decodeTownParam(param);
-  const { town, projects } = await fetchQuery(api.projects.listByTown, {
-    townName,
-  });
+  const { town, projects } = await getTownProjects(townName);
   const resolved = town?.name ?? townName;
   const btoCount = projects.filter(
     (summary) => (summary.project.saleType ?? "bto") === "bto",
@@ -66,26 +76,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   ).length;
   const heading = townHeading(resolved, btoCount, sbfCount);
   const description = townDescription(resolved, btoCount, sbfCount);
-  return {
-    metadataBase: new URL("https://btoprojects.sg"),
-    title: `${heading} | BTOProjects.sg`,
+  return createPageMetadata({
+    title: heading,
     description,
-    alternates: { canonical: `/bto/town/${param.toLowerCase()}` },
-    openGraph: {
-      title: `${heading} | BTOProjects.sg`,
-      description,
-      url: `/bto/town/${param.toLowerCase()}`,
-      type: "website",
-    },
-  };
+    path: townHref(resolved),
+    index: projects.length > 0,
+  });
 }
 
 export default async function TownPage({ params }: Props) {
   const { town: param } = await params;
   const townName = decodeTownParam(param);
-  const { town, projects } = await fetchQuery(api.projects.listByTown, {
-    townName,
-  });
+  const { town, projects } = await getTownProjects(townName);
   const resolvedName = town?.name ?? townName;
 
   // SBF town pools sit below BTO projects in their own section.
@@ -98,15 +100,50 @@ export default async function TownPage({ params }: Props) {
     btoProjects.length,
     sbfProjects.length,
   );
+  const path = townHref(resolvedName);
+  const townJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${absoluteUrl(path)}#page`,
+    url: absoluteUrl(path),
+    name: heading,
+    description: townDescription(
+      resolvedName,
+      btoProjects.length,
+      sbfProjects.length,
+    ),
+    numberOfItems: projects.length,
+    inLanguage: "en-SG",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    about: {
+      "@type": "Place",
+      name: resolvedName,
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: resolvedName,
+        addressRegion: town?.region ?? "Singapore",
+        addressCountry: "SG",
+      },
+    },
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
+      <JsonLd id="town-page-schema" data={townJsonLd} />
+      <JsonLd
+        id="town-breadcrumb-schema"
+        data={breadcrumbJsonLd([
+          { name: "Home", path: "/" },
+          { name: "Explore projects", path: "/explore" },
+          { name: resolvedName, path },
+        ])}
+      />
       <header className="space-y-4 py-8 md:py-12">
         <nav
           aria-label="Breadcrumb"
           className="flex items-center gap-1.5 text-sm text-muted-foreground [&_a]:text-muted-foreground [&_a]:hover:text-teal-deep"
         >
-          <Link href="/projects">Projects</Link>
+          <Link href="/explore">Projects</Link>
           <span aria-hidden>/</span>
           <span className="text-ink">{resolvedName}</span>
         </nav>

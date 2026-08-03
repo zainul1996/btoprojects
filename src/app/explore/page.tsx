@@ -1,15 +1,15 @@
 import type { Metadata } from "next";
 
 import { paramsIdentity } from "@/components/explore/filter-model";
+import { createPageMetadata } from "@/lib/seo";
 import { Explorer } from "./explorer";
 
-export const metadata: Metadata = {
-  metadataBase: new URL("https://btoprojects.sg"),
-  title: "Explore BTO and SBF projects — BTOProjects.sg",
+export const metadata: Metadata = createPageMetadata({
+  title: "Explore Singapore BTO and SBF projects",
   description:
-    "Every BTO project and SBF town pool in Singapore on one calm map. Filter by sale type, application status, town, region, price, flat type, wait time and classification.",
-  alternates: { canonical: "/explore" },
-};
+    "Explore Singapore BTO projects and SBF town pools on one map. Filter by sale type, status, town, region, price, flat type, wait time and classification.",
+  path: "/explore",
+});
 
 export default async function ExplorePage({
   searchParams,

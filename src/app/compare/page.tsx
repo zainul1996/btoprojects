@@ -4,12 +4,14 @@ import { fetchQuery } from "convex/nextjs";
 import { api } from "../../../convex/_generated/api";
 import { CompareWorkspace } from "@/components/compare/compare-workspace";
 import { PageHeader } from "@/components/page-header";
+import { createPageMetadata } from "@/lib/seo";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = createPageMetadata({
   title: "Compare BTO and SBF options",
   description:
     "Compare Singapore HDB BTO projects and SBF town pools side by side, with clear sale-type and data-availability context.",
-};
+  path: "/compare",
+});
 
 export default async function ComparePage({
   searchParams,
