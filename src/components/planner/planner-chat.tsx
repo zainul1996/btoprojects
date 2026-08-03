@@ -1,32 +1,31 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { DefaultChatTransport } from "ai";
-import { useChat } from "@ai-sdk/react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Show, SignInButton } from "@clerk/nextjs";
-import { useMutation } from "convex/react";
 import { ArrowDown, SendHorizonal, Square } from "lucide-react";
 import Link from "next/link";
 import { useStickToBottom } from "use-stick-to-bottom";
 
-import { api } from "../../../convex/_generated/api";
-import type { Id } from "../../../convex/_generated/dataModel";
-import type { RankingResultItem } from "../../../convex/lib/plannerShared";
 import { useCompare } from "@/components/compare-tray";
 import { PageHeader } from "@/components/page-header";
+import { usePlannerChat } from "@/components/planner/planner-chat-provider";
 import { PlannerMarkdown } from "@/components/planner/planner-markdown";
-import {
-  RankingCard,
-  type PlannerConstraints,
-} from "@/components/planner/ranking-card";
-import { useAuthedUser } from "@/components/watchlist/use-authed-user";
+import { RankingCard } from "@/components/planner/ranking-card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import type {
-  PlannerPhase,
-  PlannerSuggestion,
-  PlannerUIMessage,
-} from "@/lib/planner/types";
+import {
+  MAX_STORED_MESSAGES,
+  clearStoredChat,
+  writeStoredChat,
+} from "@/lib/planner/chat-storage";
+import {
+  citedMapOf,
+  formatDataAsOf,
+  rankingsDataOf,
+  suggestionsOf,
+  textOf,
+} from "@/lib/planner/message-parts";
+import type { PlannerSuggestion, PlannerUIMessage } from "@/lib/planner/types";
 import { useVisualViewportHeight } from "@/lib/use-visual-viewport";
 import { cn } from "@/lib/utils";
 
@@ -41,84 +40,9 @@ const EXAMPLE_PROMPTS = [
 const PLACEHOLDER_FULL = "Budget, flat type, towns, how long you can wait…";
 const PLACEHOLDER_SHORT = "Budget, flat type, towns, wait…";
 
-// Per-tab persistence: sessionStorage survives SPA navigation and reloads but
-// dies with the tab, which matches the anonymous-session semantics we want.
-const CHAT_STORAGE_KEY = "bto.planner.chat.v1";
-const MAX_STORED_MESSAGES = 50;
+// Per-tab persistence helpers live in @/lib/planner/chat-storage (shared with
+// the provider, which owns the restore read).
 const PERSIST_INTERVAL_MS = 300;
-
-type StoredChat = {
-  messages: PlannerUIMessage[];
-  constraints: PlannerConstraints;
-  sessionId: Id<"plannerSessions"> | null;
-  input: string;
-  savedAt: number;
-};
-
-function isStoredMessage(value: unknown): value is PlannerUIMessage {
-  if (typeof value !== "object" || value === null) return false;
-  const message = value as Record<string, unknown>;
-  return (
-    typeof message.id === "string" &&
-    (message.role === "user" ||
-      message.role === "assistant" ||
-      message.role === "system") &&
-    Array.isArray(message.parts)
-  );
-}
-
-function readStoredChat(): StoredChat | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(CHAT_STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as unknown;
-    if (typeof parsed !== "object" || parsed === null) return null;
-    const envelope = parsed as Record<string, unknown>;
-    return {
-      messages: Array.isArray(envelope.messages)
-        ? envelope.messages.filter(isStoredMessage).slice(-MAX_STORED_MESSAGES)
-        : [],
-      constraints:
-        typeof envelope.constraints === "object"
-          ? (envelope.constraints as PlannerConstraints)
-          : null,
-      sessionId:
-        typeof envelope.sessionId === "string"
-          ? (envelope.sessionId as Id<"plannerSessions">)
-          : null,
-      input: typeof envelope.input === "string" ? envelope.input : "",
-      savedAt: typeof envelope.savedAt === "number" ? envelope.savedAt : 0,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeStoredChat(chat: StoredChat): void {
-  try {
-    if (
-      chat.messages.length === 0 &&
-      chat.constraints === null &&
-      chat.sessionId === null &&
-      chat.input.trim() === ""
-    ) {
-      window.sessionStorage.removeItem(CHAT_STORAGE_KEY);
-      return;
-    }
-    window.sessionStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chat));
-  } catch {
-    // Quota or privacy mode: the chat works without persistence.
-  }
-}
-
-function clearStoredChat(): void {
-  try {
-    window.sessionStorage.removeItem(CHAT_STORAGE_KEY);
-  } catch {
-    // Nothing to protect here.
-  }
-}
 
 function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
@@ -138,68 +62,6 @@ function usePrefersReducedMotion(): boolean {
   return useMediaQuery("(prefers-reduced-motion: reduce)");
 }
 
-function textOf(message: PlannerUIMessage): string {
-  return message.parts
-    .filter((part) => part.type === "text")
-    .map((part) => part.text)
-    .join("\n");
-}
-
-function rankingsDataOf(message: PlannerUIMessage) {
-  const part = message.parts.find((p) => p.type === "data-rankings");
-  return part && part.type === "data-rankings" ? part.data : null;
-}
-
-function rankingsOf(message: PlannerUIMessage): RankingResultItem[] | null {
-  return rankingsDataOf(message)?.rankings ?? null;
-}
-
-function suggestionsOf(message: PlannerUIMessage): PlannerSuggestion[] {
-  const part = message.parts.find((p) => p.type === "data-suggestions");
-  return part && part.type === "data-suggestions" ? part.data.suggestions : [];
-}
-
-const MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-] as const;
-
-// Locale-stable ISO formatting: new Date("2026-08-02") shifts a day in
-// negative-offset timezones, so render straight from the string parts.
-function formatDataAsOf(iso: string): string | null {
-  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
-  if (!match) return null;
-  const monthIndex = Number(match[2]) - 1;
-  const month = MONTHS_SHORT[monthIndex];
-  if (month === undefined) return null;
-  return `${Number(match[3])} ${month} ${match[1]}`;
-}
-
-function citedMapOf(rankings: RankingResultItem[] | null): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const item of rankings ?? []) map.set(item.slug, item.name);
-  return map;
-}
-
-function citedSlugsIn(text: string, rankings: RankingResultItem[] | null) {
-  const known = new Set((rankings ?? []).map((r) => r.slug));
-  const found = new Set<string>();
-  for (const match of text.matchAll(/\[([a-z0-9][a-z0-9-]*)\]/g)) {
-    if (known.has(match[1])) found.add(match[1]);
-  }
-  return [...found];
-}
-
 function WorkingDots() {
   return (
     <span className="flex gap-1" aria-hidden>
@@ -216,115 +78,33 @@ function WorkingDots() {
 
 export function PlannerChat() {
   const { slugs: traySlugs } = useCompare();
-  const authed = useAuthedUser();
-  const saveTurn = useMutation(api.planner.saveTurn);
-
-  const [transport] = useState(
-    () => new DefaultChatTransport<PlannerUIMessage>({ api: "/api/planner/chat" }),
-  );
-
-  const [phase, setPhase] = useState<PlannerPhase | null>(null);
-  const [constraints, setConstraints] = useState<PlannerConstraints>(null);
-  const [sessionId, setSessionId] = useState<Id<"plannerSessions"> | null>(
-    null,
-  );
-  const [input, setInput] = useState("");
-  // Stays false through SSR and the first client render so the stored chat
-  // never fights hydration; the welcome only shows once restore has run.
-  const [hydrated, setHydrated] = useState(false);
-
-  // Refs keep streaming callbacks free of stale closures.
-  const authedRef = useRef(authed);
-  const constraintsRef = useRef(constraints);
-  const sessionIdRef = useRef(sessionId);
-  useEffect(() => {
-    authedRef.current = authed;
-    constraintsRef.current = constraints;
-    sessionIdRef.current = sessionId;
-  }, [authed, constraints, sessionId]);
-
-  const { messages, setMessages, sendMessage, status, stop, regenerate } =
-    useChat<PlannerUIMessage>({
-      transport,
-      onData: (part) => {
-        if (part.type === "data-phase") setPhase(part.data);
-        if (part.type === "data-constraints") {
-          setConstraints(part.data.constraints);
-        }
-        if (part.type === "data-replaceText") {
-          // Post-stream integrity correction: swap the narration, keep the
-          // cards and chips. The part itself stays in the message, which is
-          // how AssistantTurn knows to show the "Adjusted for accuracy" note.
-          const { text } = part.data;
-          setMessages((current) => {
-            const next = [...current];
-            for (let i = next.length - 1; i >= 0; i--) {
-              const message = next[i];
-              if (message.role !== "assistant") continue;
-              next[i] = {
-                ...message,
-                parts: [
-                  { type: "text", text },
-                  ...message.parts.filter((p) => p.type !== "text"),
-                ],
-              };
-              break;
-            }
-            return next;
-          });
-        }
-      },
-      onFinish: ({ message, messages: all, isError, isAbort }) => {
-        setPhase(null);
-        if (isError || isAbort || !authedRef.current) return;
-        const userMessage = all[all.length - 2];
-        if (!userMessage || userMessage.role !== "user") return;
-        const reply = textOf(message);
-        if (!reply) return;
-        const rankings = rankingsOf(message);
-        void saveTurn({
-          sessionId: sessionIdRef.current ?? undefined,
-          userMessage: textOf(userMessage),
-          assistantMessage: reply,
-          constraints: constraintsRef.current ?? undefined,
-          citedProjectSlugs: citedSlugsIn(reply, rankings),
-        })
-          .then((id) => setSessionId(id))
-          .catch(() => {
-            // History is a convenience; never block the chat over it.
-          });
-      },
-      onError: () => setPhase(null),
-    });
-
-  const pending = status === "submitted" || status === "streaming";
+  const {
+    messages,
+    setMessages,
+    sendMessage,
+    status,
+    stop,
+    regenerate,
+    pending,
+    phase,
+    setPhase,
+    constraints,
+    setConstraints,
+    sessionId,
+    setSessionId,
+    input,
+    setInput,
+    hydrated,
+    authed,
+    constraintsRef,
+  } = usePlannerChat();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // Restore after mount (never in a useState initializer: this route is
-  // prerendered, and sessionStorage does not exist on the server). The
-  // microtask keeps state writes out of the synchronous effect body; the
-  // cancelled flag covers unmount and StrictMode's double effect.
-  useEffect(() => {
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (cancelled) return;
-      const stored = readStoredChat();
-      if (stored) {
-        if (stored.messages.length > 0) setMessages(stored.messages);
-        if (stored.constraints) setConstraints(stored.constraints);
-        if (stored.sessionId) setSessionId(stored.sessionId);
-        if (stored.input) setInput(stored.input);
-      }
-      setHydrated(true);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [setMessages]);
-
   // Streaming updates messages per token, so writes are throttled: at most
-  // one write per interval, with a trailing write for the latest state.
+  // one write per interval, with a trailing write for the latest state. The
+  // restore read lives in the provider (it owns the chat state); this write
+  // side stays here so persistence tracks the visible conversation.
   const lastPersistRef = useRef(0);
   useEffect(() => {
     if (!hydrated) return;

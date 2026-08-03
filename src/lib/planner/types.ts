@@ -4,8 +4,18 @@ import type {
   NormalizedConstraints,
   RankingResultItem,
 } from "../../../convex/lib/plannerShared";
+import type { PlannerTools } from "./tools";
 
-export type PlannerPhaseId = "reading" | "searching" | "ranking" | "writing";
+export type PlannerPhaseId =
+  | "reading"
+  | "searching"
+  | "ranking"
+  | "resale"
+  | "web"
+  | "details"
+  | "town"
+  | "calendar"
+  | "writing";
 
 export type PlannerPhase = {
   phase: PlannerPhaseId;
@@ -43,4 +53,4 @@ export type PlannerDataParts = {
   replaceText: { text: string; reason: "citation-check" };
 };
 
-export type PlannerUIMessage = UIMessage<unknown, PlannerDataParts>;
+export type PlannerUIMessage = UIMessage<unknown, PlannerDataParts, PlannerTools>;

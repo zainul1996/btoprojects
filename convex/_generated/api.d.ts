@@ -32,6 +32,7 @@ import type * as planner from "../planner.js";
 import type * as plannerActions from "../plannerActions.js";
 import type * as profile from "../profile.js";
 import type * as projects from "../projects.js";
+import type * as resale from "../resale.js";
 import type * as seed from "../seed.js";
 import type * as seedData from "../seedData.js";
 import type * as seedOct2026 from "../seedOct2026.js";
@@ -71,6 +72,7 @@ declare const fullApi: ApiFromModules<{
   plannerActions: typeof plannerActions;
   profile: typeof profile;
   projects: typeof projects;
+  resale: typeof resale;
   seed: typeof seed;
   seedData: typeof seedData;
   seedOct2026: typeof seedOct2026;

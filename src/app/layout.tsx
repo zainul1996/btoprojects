@@ -4,6 +4,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { CompareTrayProvider } from "@/components/compare-tray";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
+import { PlannerChatProvider } from "@/components/planner/planner-chat-provider";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { SiteHeader } from "@/components/shell/site-header";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -40,9 +41,11 @@ export default function RootLayout({
           <ConvexClientProvider>
             <TooltipProvider>
               <CompareTrayProvider>
-                <SiteHeader />
-                <main className="min-h-svh">{children}</main>
-                <SiteFooter />
+                <PlannerChatProvider>
+                  <SiteHeader />
+                  <main className="min-h-svh">{children}</main>
+                  <SiteFooter />
+                </PlannerChatProvider>
               </CompareTrayProvider>
             </TooltipProvider>
             <Toaster />

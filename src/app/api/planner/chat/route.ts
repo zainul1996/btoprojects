@@ -2,45 +2,29 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
+  stepCountIs,
   streamText,
 } from "ai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { ConvexHttpClient } from "convex/browser";
 
-import { api } from "../../../../../convex/_generated/api";
-import { rankProjects, type RankedProject } from "../../../../../convex/lib/ranking";
 import {
+  AGENT_SYSTEM_PROMPT,
   DEFAULT_MODEL,
-  EXTRACTION_SYSTEM_PROMPT,
-  NARRATION_SYSTEM_PROMPT,
-  buildNarrationContent,
-  buildSuggestions,
-  callOpenRouter,
-  extractionJsonSchema,
-  extractionSchema,
-  extractJsonObject,
-  fallbackReply,
-  isSchemaModeUnsupported,
   normalizeConstraints,
-  parseExtraction,
-  toRankingConstraints,
-  toRankingItems,
-  verifyNarration,
-  type ChatMessage,
-  type NarrationNoMatch,
-  type NormalizedConstraints,
 } from "../../../../../convex/lib/plannerShared";
+import { createPlannerTools, createTurnCorpus, type TurnCorpus } from "@/lib/planner/tools";
 import type { PlannerUIMessage } from "@/lib/planner/types";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 /**
- * Streaming planner pipeline. Same guardrails as the Convex action path:
- * constraint extraction (strict JSON), deterministic ranking over governed
- * Convex data, then a streamed narration that may only cite [slug]s from
- * the ranked records. Progress phases stream as transient data parts so the
- * UI can show "Searching…" instead of a silent spinner.
+ * Tool-calling planner. One LLM loop decides what it needs: read-only Convex
+ * tools (search/detail/rank/resale/town/exercises) for governed data, Tavily
+ * web search for everything else. The deterministic ranker still owns
+ * recommendations; the model narrates. Post-stream verification checks every
+ * cited slug and dollar figure against the union of this turn's tool results.
  */
 
 const convex = new ConvexHttpClient(process.env.NEXT_PUBLIC_CONVEX_URL ?? "");
@@ -56,148 +40,48 @@ function messageText(message: PlannerUIMessage): string {
 const FALLBACK_TEXT_ID = "fallback-text";
 
 /**
- * Extraction is the planner's ears. If it fails or returns nothing usable we
- * must not rank on empty constraints: every project then scores a neutral 52
- * and the top-5 is alphabetical noise presented as recommendations. Retry
- * once, then give up honestly with a deterministic clarifying reply.
+ * Agent reply verification: cited slugs must have been returned by a tool
+ * this turn; every S$ amount must be within 2% of a figure a tool returned
+ * (tolerance absorbs the model's rounding without admitting inventions).
+ * Month counts stay unverified: derived wait arithmetic is legitimate.
  */
-type ExtractionOutcome =
-  | { kind: "chitchat"; constraints: NormalizedConstraints | null }
-  | { kind: "constraints"; constraints: NormalizedConstraints };
+function verifyAgentReply(reply: string, corpus: TurnCorpus): string[] {
+  const violations: string[] = [];
+  if (!corpus.ranked && corpus.slugs.size === 0) return violations;
 
-const EXTRACTION_ATTEMPTS = [
-  { attempt: 1, timeoutMs: 20_000 },
-  { attempt: 2, timeoutMs: 25_000 },
-] as const;
-
-type SchemaValidation =
-  | { ok: true; outcome: ExtractionOutcome }
-  | { ok: false; error: string };
-
-/**
- * Strict-mode path: the reply must be a JSON object that satisfies the
- * extraction schema, then normalizeConstraints sanitizes it (belt and
- * braces). A constraints read with every field empty is worthless for
- * ranking, so it is reported as a failure and retried.
- */
-function validateExtraction(raw: string): SchemaValidation {
-  const parsed = extractJsonObject(raw);
-  if (!parsed || typeof parsed !== "object") {
-    return { ok: false, error: "empty_or_unparseable_extraction" };
-  }
-  const result = extractionSchema.safeParse(parsed);
-  if (!result.success) {
-    const issues = result.error.issues
-      .map((issue) => `${issue.path.join(".") || "root"}: ${issue.message}`)
-      .join("; ")
-      .slice(0, 300);
-    return { ok: false, error: `schema_validation: ${issues}` };
-  }
-  const constraints = normalizeConstraints(result.data);
-  if (result.data.kind === "chitchat") {
-    return { ok: true, outcome: { kind: "chitchat", constraints } };
-  }
-  if (constraints === null) {
-    return { ok: false, error: "empty_or_unparseable_extraction" };
-  }
-  return { ok: true, outcome: { kind: "constraints", constraints } };
-}
-
-async function extractWithRetry(opts: {
-  apiKey: string;
-  model: string;
-  transcript: ChatMessage[];
-  userText: string;
-  priorConstraints: NormalizedConstraints | null;
-}): Promise<ExtractionOutcome | null> {
-  const baseUserContent = opts.priorConstraints
-    ? `${opts.userText}\n\nHere are the constraints so far: ${JSON.stringify(
-        opts.priorConstraints,
-      )}\nOutput the FULL updated object after applying the new message; keep fields not mentioned; set a field to null only if the user explicitly removes it.`
-    : opts.userText;
-
-  let schemaMode = true;
-  let repairNote: string | null = null;
-
-  for (const { attempt, timeoutMs } of EXTRACTION_ATTEMPTS) {
-    const userContent = repairNote
-      ? `${baseUserContent}\n\nYour previous reply failed validation (${repairNote}). Return corrected JSON only.`
-      : baseUserContent;
-    try {
-      const raw = await callOpenRouter({
-        apiKey: opts.apiKey,
-        model: opts.model,
-        phase: "extract",
-        timeoutMs,
-        ...(schemaMode
-          ? {
-              jsonSchema: {
-                name: "planner_constraints",
-                schema: extractionJsonSchema,
-              },
-            }
-          : { json: true }),
-        messages: [
-          { role: "system", content: EXTRACTION_SYSTEM_PROMPT },
-          ...opts.transcript,
-          { role: "user", content: userContent },
-        ],
-      });
-      if (schemaMode) {
-        const validation = validateExtraction(raw);
-        if (validation.ok) return validation.outcome;
-        console.warn(
-          JSON.stringify({
-            fn: "planner",
-            phase: "extract",
-            attempt,
-            error: validation.error,
-          }),
-        );
-        // Self-heal: the next attempt carries the validation error.
-        repairNote = validation.error;
-        continue;
-      }
-      const parsed = parseExtraction(raw);
-      if (parsed.kind === "chitchat") {
-        return { kind: "chitchat", constraints: parsed.constraints };
-      }
-      if (parsed.constraints !== null) {
-        return { kind: "constraints", constraints: parsed.constraints };
-      }
-      // parseExtraction folds unparseable JSON into "constraints" + null, the
-      // same shape as a genuinely empty read; both are worthless for ranking.
-      console.warn(
-        JSON.stringify({
-          fn: "planner",
-          phase: "extract",
-          attempt,
-          error: "empty_or_unparseable_extraction",
-        }),
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      console.warn(
-        JSON.stringify({
-          fn: "planner",
-          phase: "extract",
-          attempt,
-          error: message,
-        }),
-      );
-      repairNote = null;
-      if (schemaMode && isSchemaModeUnsupported(message)) {
-        // The provider cannot honor strict json_schema: downgrade to
-        // json_object for the remaining attempt.
-        schemaMode = false;
-      }
+  for (const match of reply.matchAll(/\[([a-z0-9][a-z0-9-]*)\]/g)) {
+    if (!corpus.slugs.has(match[1])) {
+      violations.push(`unknown_citation:${match[1]}`);
     }
   }
-  return null;
-}
 
-const CLARIFYING_REPLY =
-  "I didn't quite catch that. Give me a budget, the towns you are looking at, flat types, or how long you can wait, and I will rank the launches for you.";
+  const amounts = new Set<number>();
+  for (const match of reply.matchAll(/S\$\s*([\d,]+(?:\.\d+)?)(k|m)?\b/gi)) {
+    const raw = Number(match[1].replace(/,/g, ""));
+    if (!Number.isFinite(raw) || raw <= 0) continue;
+    const unit = match[2]?.toLowerCase();
+    amounts.add(Math.round(unit === "k" ? raw * 1000 : unit === "m" ? raw * 1_000_000 : raw));
+  }
+  // Derived deltas ("S$30k cheaper") are legitimate arithmetic on corpus
+  // figures; accept pairwise differences alongside the corpus itself.
+  // Sub-80k figures are never project prices, so they skip the check.
+  const known = [...corpus.amounts];
+  const derived = new Set<number>();
+  for (let i = 0; i < known.length; i++) {
+    for (let j = i + 1; j < known.length; j++) {
+      derived.add(Math.abs(known[i]! - known[j]!));
+    }
+  }
+  const within = (amount: number, target: number) =>
+    Math.abs(target - amount) / Math.max(target, amount) <= 0.02;
+  for (const amount of amounts) {
+    if (amount < 80_000) continue;
+    const near =
+      known.some((k) => within(amount, k)) || [...derived].some((d) => within(amount, d));
+    if (!near) violations.push(`unverified_amount:S$${amount}`);
+  }
+  return violations;
+}
 
 export async function POST(req: Request) {
   const body = (await req.json()) as {
@@ -207,7 +91,8 @@ export async function POST(req: Request) {
   const messages = body.messages ?? [];
   const lastUser = [...messages].reverse().find((m) => m.role === "user");
   const userText = lastUser ? messageText(lastUser) : "";
-  // Constraint memory sent by the client; sanitized before the model sees it.
+  // Constraint memory sent by the client; forwarded into the model's context
+  // so multi-turn updates ("make it cheaper") keep earlier fields.
   const priorConstraints = normalizeConstraints(body.priorConstraints);
 
   const apiKey = process.env.OPENROUTER_API_KEY;
@@ -224,10 +109,7 @@ export async function POST(req: Request) {
     },
     execute: async ({ writer }) => {
       if (!apiKey) {
-        writer.write({
-          type: "text-start",
-          id: FALLBACK_TEXT_ID,
-        });
+        writer.write({ type: "text-start", id: FALLBACK_TEXT_ID });
         writer.write({
           type: "text-delta",
           id: FALLBACK_TEXT_ID,
@@ -250,14 +132,23 @@ export async function POST(req: Request) {
       }
 
       const prior = messages.slice(0, -1).slice(-8);
-      const transcriptText: ChatMessage[] = prior
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map((m) => ({
-          role: m.role as "user" | "assistant",
-          content: messageText(m),
-        }))
-        .filter((m) => m.content.length > 0);
       const transcriptModel = await convertToModelMessages(prior);
+
+      const todayISO = new Date().toISOString().slice(0, 10);
+      const corpus = createTurnCorpus();
+      // Figures the user supplied themselves are grounded by definition:
+      // quoting "your S$500k budget" back must not fail the amount check.
+      if (typeof priorConstraints?.budgetMax === "number" && priorConstraints.budgetMax > 0) {
+        corpus.amounts.add(priorConstraints.budgetMax);
+      }
+      const tools = createPlannerTools({
+        convex,
+        writer,
+        corpus,
+        tavilyApiKey: process.env.TAVILY_API_KEY,
+        signal: req.signal,
+        todayISO,
+      });
 
       writer.write({
         type: "data-phase",
@@ -265,152 +156,10 @@ export async function POST(req: Request) {
         transient: true,
       });
 
-      // With constraint memory the extractor only needs the newest exchange
-      // to apply the update; without it the fuller transcript is the memory.
-      const extraction = await extractWithRetry({
-        apiKey,
-        model,
-        transcript: priorConstraints ? transcriptText.slice(-2) : transcriptText,
-        userText,
-        priorConstraints,
-      });
+      const memoryNote = priorConstraints
+        ? `\n\nConstraints so far: ${JSON.stringify(priorConstraints)}\nIf this message updates them, pass the FULL updated set to the tool: keep fields not mentioned; clear a field only when the user explicitly removes it.`
+        : "";
 
-      if (extraction === null) {
-        // No usable read of the message: skip ranking and answer with a
-        // deterministic clarifying reply (no LLM call, cannot hallucinate).
-        writer.write({
-          type: "data-constraints",
-          id: "constraints",
-          data: { constraints: null },
-        });
-        writer.write({ type: "text-start", id: FALLBACK_TEXT_ID });
-        writer.write({
-          type: "text-delta",
-          id: FALLBACK_TEXT_ID,
-          delta: CLARIFYING_REPLY,
-        });
-        writer.write({ type: "text-end", id: FALLBACK_TEXT_ID });
-        return;
-      }
-
-      const { kind, constraints } = extraction;
-
-      writer.write({
-        type: "data-constraints",
-        id: "constraints",
-        data: { constraints },
-      });
-
-      if (kind === "constraints") {
-        writer.write({
-          type: "data-phase",
-          data: { phase: "searching", label: "Searching the launch records" },
-          transient: true,
-        });
-      }
-
-      // Fetched for chitchat too: the narration may only make coverage claims
-      // it can see, so it always gets the real town list and project count.
-      const all = await convex.query(api.planner.forRanking, {});
-      const totalProjects = all.length;
-      const townsCovered = [
-        ...new Set(all.map((p) => p.town).filter((t) => t.length > 0)),
-      ].sort((a, b) => a.localeCompare(b));
-
-      let top: RankedProject[] = [];
-      let noMatch: NarrationNoMatch | undefined;
-      if (kind === "constraints") {
-        writer.write({
-          type: "data-phase",
-          data: {
-            phase: "ranking",
-            label: `Scoring ${all.length} projects against your constraints`,
-          },
-          transient: true,
-        });
-        const ranked = rankProjects(all, toRankingConstraints(constraints));
-        top = ranked.slice(0, 5);
-
-        const requestedTowns = constraints.towns ?? [];
-        const requestedRegions = constraints.regions ?? [];
-        if (requestedTowns.length > 0) {
-          const wantedTowns = new Set(
-            requestedTowns.map((t) => t.toLowerCase()),
-          );
-          const townHits = all.filter((p) =>
-            wantedTowns.has(p.town.toLowerCase()),
-          );
-          if (townHits.length === 0) {
-            // Zero projects in the requested towns: the unconstrained top-5
-            // must not be presented as if it answered the question.
-            const wantedRegions = new Set(
-              requestedRegions.map((r) => r.toLowerCase()),
-            );
-            const neighbours =
-              wantedRegions.size > 0
-                ? ranked.filter((entry) =>
-                    wantedRegions.has(entry.project.region.toLowerCase()),
-                  )
-                : [];
-            if (neighbours.length > 0) {
-              top = neighbours.slice(0, 3);
-              noMatch = {
-                scope: "towns",
-                requested: requestedTowns,
-                suggestionMode: "region-neighbours",
-              };
-            } else {
-              top = [];
-              noMatch = {
-                scope: "towns",
-                requested: requestedTowns,
-                suggestionMode: "none",
-              };
-            }
-          }
-        } else if (requestedRegions.length > 0) {
-          const wantedRegions = new Set(
-            requestedRegions.map((r) => r.toLowerCase()),
-          );
-          const regionHits = all.filter((p) =>
-            wantedRegions.has(p.region.toLowerCase()),
-          );
-          if (regionHits.length === 0) {
-            top = [];
-            noMatch = {
-              scope: "regions",
-              requested: requestedRegions,
-              suggestionMode: "none",
-            };
-          }
-        }
-      }
-
-      // Trust denominators for the cards and the narration prompt.
-      const matchesInRequestedTowns =
-        constraints !== null && (constraints.towns?.length ?? 0) > 0
-          ? all.filter((p) =>
-              constraints.towns!.some(
-                (t) => t.toLowerCase() === p.town.toLowerCase(),
-              ),
-            ).length
-          : 0;
-      const updatedAtBySlug = new Map(all.map((p) => [p.slug, p.updatedAt]));
-      const rankedUpdatedAts = top
-        .map((entry) => updatedAtBySlug.get(entry.project.slug))
-        .filter((value): value is number => typeof value === "number");
-      const dataAsOf =
-        rankedUpdatedAts.length > 0
-          ? new Date(Math.max(...rankedUpdatedAts)).toISOString().slice(0, 10)
-          : undefined;
-
-      writer.write({
-        type: "data-phase",
-        data: { phase: "writing", label: "Writing your answer" },
-        transient: true,
-      });
-
-      const todayISO = new Date().toISOString().slice(0, 10);
       const result = streamText({
         model: openrouter.chat(model),
         providerOptions: {
@@ -418,84 +167,54 @@ export async function POST(req: Request) {
           // token arrives sooner and no half-formed reasoning leaks into UI.
           openrouter: { reasoning: { exclude: true, effort: "low" } },
         },
-        system: NARRATION_SYSTEM_PROMPT,
+        system: `${AGENT_SYSTEM_PROMPT}\n\nToday's date: ${todayISO}.`,
         messages: [
           ...transcriptModel,
-          {
-            role: "user" as const,
-            content: buildNarrationContent({
-              message: userText,
-              constraints,
-              kind,
-              top,
-              todayISO,
-              totalProjects,
-              townsCovered,
-              noMatch,
-              matchesInRequestedTowns,
-            }),
-          },
+          { role: "user" as const, content: userText + memoryNote },
         ],
+        tools,
+        stopWhen: stepCountIs(5),
+        abortSignal: req.signal,
         temperature: 0.1,
+        onStepFinish: (step) => {
+          if (step.toolCalls.length > 0) {
+            writer.write({
+              type: "data-phase",
+              data: { phase: "writing", label: "Writing your answer" },
+              transient: true,
+            });
+          }
+        },
       });
-      // Narration text streams FIRST; the cards and follow-up chips are
-      // written only after it completes so they never race ahead of it.
+      // Text streams through as it is generated; cards/chips were already
+      // written by the tools but the client gates them on text presence.
       for await (const chunk of result.toUIMessageStream<PlannerUIMessage>()) {
         writer.write(chunk);
       }
 
-      // Post-stream integrity check: citations must resolve to ranked slugs,
-      // and every stated S$ amount / month count must exist in the records
-      // the model was given. Chitchat replies have no records, so skip it.
-      if (kind === "constraints") {
-        let fullText = "";
-        try {
-          fullText = await result.text;
-        } catch {
-          fullText = "";
-        }
-        if (fullText.trim().length > 0) {
-          const violations = verifyNarration(fullText, top, {
-            constraints,
-            todayISO,
+      // Post-stream integrity check against the union of tool results.
+      let fullText = "";
+      try {
+        fullText = await result.text;
+      } catch {
+        fullText = "";
+      }
+      if (fullText.trim().length > 0) {
+        const violations = verifyAgentReply(fullText, corpus);
+        if (violations.length > 0) {
+          console.warn(
+            JSON.stringify({ fn: "planner", phase: "verify", violations }),
+          );
+          writer.write({
+            type: "data-replaceText",
+            data: {
+              text:
+                corpus.fallbackText ??
+                "I could not verify that answer against our records, so I have replaced it. Try narrowing the question, or set an alert below and we will let you know when a matching launch appears.",
+              reason: "citation-check",
+            },
           });
-          if (violations.length > 0) {
-            console.warn(
-              JSON.stringify({ fn: "planner", phase: "verify", violations }),
-            );
-            writer.write({
-              type: "data-replaceText",
-              data: {
-                text:
-                  top.length > 0
-                    ? fallbackReply(top)
-                    : "I could not verify that answer against our launch records, so I have replaced it. Our records have no matching projects for that request yet; set an alert below and we will let you know when a new launch appears.",
-                reason: "citation-check",
-              },
-            });
-          }
         }
-      }
-
-      if (top.length > 0) {
-        writer.write({
-          type: "data-rankings",
-          id: "rankings",
-          data: {
-            rankings: toRankingItems(top),
-            totalProjects,
-            ...(dataAsOf ? { dataAsOf } : {}),
-          },
-        });
-      }
-
-      const suggestions = buildSuggestions({ kind, constraints, top, noMatch });
-      if (suggestions.length > 0) {
-        writer.write({
-          type: "data-suggestions",
-          id: "suggestions",
-          data: { suggestions },
-        });
       }
     },
   });

@@ -64,8 +64,9 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 
 | # | Feature | Status | Notes |
 |---|---|---|---|
-| F4.1 | Planner: constraint extraction (typed, shown as chips) | Done | OpenRouter deepseek-v4-flash; verified extraction |
-| F4.1b | Planner: streaming chat UX | Done | AI SDK 7 route handler; phase statuses (reading → searching → ranking → writing), token streaming, markdown + citation links, stop/retry; reasoning tokens excluded for low TTFT |
+| F4.1 | Planner: constraint extraction (typed, shown as chips) | Done | Extraction-by-tool-call: the agent passes constraints as typed rankProjects args; memory via priorConstraints |
+| F4.1b | Planner: streaming chat UX | Done | AI SDK 7 route handler; per-tool phase statuses ("Checking Sembawang resale…"), token streaming, markdown + citation links, stop/retry; reasoning tokens excluded for low TTFT |
+| F4.1c | Planner: tool-calling agent loop | Done | 6 read-only DB tools + Tavily webSearch (labeled "from the web"); announced projects now answerable; post-stream verification vs union of tool results |
 | F4.2 | Transparent weighted ranking + breakdowns | Done | Deterministic 4-factor score; user-adjustable weights → V1 |
 | F4.3 | Cited AI answers ([slug] links only from cited set) | Done | Verified: all 5 narrations cited in round-trip test |
 | F4.4 | Planner surface | Done | Full-page chat (mobile + desktop); docked side-panel variant → later |

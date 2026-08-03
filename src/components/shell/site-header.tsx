@@ -7,6 +7,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 
 import { api } from "../../../convex/_generated/api"
+import { usePlannerChat } from "@/components/planner/planner-chat-provider"
 import { Button } from "@/components/ui/button"
 import {
   Sheet,
@@ -67,6 +68,18 @@ function UnreadDot({ unread, className }: { unread: number | undefined; classNam
     >
       {label ?? "0"}
     </span>
+  )
+}
+
+/** Quiet pulse on the Planner nav item while a reply is still being written. */
+function PlannerBusyDot() {
+  const { pending } = usePlannerChat()
+  if (!pending) return null
+  return (
+    <span
+      aria-hidden
+      className="ml-1.5 inline-block size-1.5 animate-pulse rounded-full bg-teal-deep"
+    />
   )
 }
 
@@ -143,6 +156,7 @@ function SiteHeader() {
                   )}
                 >
                   {item.label}
+                  {item.href === "/planner" && <PlannerBusyDot />}
                 </Link>
               )
             })}
@@ -203,6 +217,7 @@ function SiteHeader() {
                       )}
                     >
                       {item.label}
+                      {item.href === "/planner" && <PlannerBusyDot />}
                     </SheetClose>
                   )
                 })}
