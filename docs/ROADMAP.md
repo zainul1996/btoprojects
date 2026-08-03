@@ -44,7 +44,7 @@ Guidance: avoid degrading trust or neutrality. See PRODUCT.md monetisation seque
 
 ## Metrics to instrument (from strategy)
 
-- **North star:** % of active users who create a shortlist/watchlist after viewing project evidence
+- **North star:** % of active users who save or compare a project after viewing project evidence
 - **Activation:** first comparison, first saved profile, first alert subscription
 - **Quality:** source freshness, extraction error rate, correction rate, answer citation coverage
 - **Retention:** return for new exercise, source update or alert digest

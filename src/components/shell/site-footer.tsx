@@ -33,7 +33,7 @@ function SiteFooter() {
                 Launch calendar
               </Link>
               <Link href="/planner" className="inline-flex min-h-11 items-center text-sm hover:text-teal-deep hover:underline sm:min-h-0 sm:py-1">
-                Planner
+                AI Planner
               </Link>
               <Link href="/compare" className="inline-flex min-h-11 items-center text-sm hover:text-teal-deep hover:underline sm:min-h-0 sm:py-1">
                 Compare

@@ -164,7 +164,7 @@ export async function POST(req: Request) {
           type: "text-delta",
           id: FALLBACK_TEXT_ID,
           delta:
-            "The planner is not configured yet (missing model credentials). You can still browse and compare projects in the explorer.",
+            "The AI Planner is not configured yet because model credentials are missing. You can still browse and compare projects.",
         });
         writer.write({ type: "text-end", id: FALLBACK_TEXT_ID });
         return;

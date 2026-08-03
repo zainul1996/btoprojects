@@ -10,7 +10,7 @@ Last updated: 3 Aug 2026
 2. **Are we over-explaining?** If the UI needs a paragraph to explain itself, the UI is wrong. Copy is short, plain, and earns its place.
 3. **Is this the most intuitive way?** A first-time user should know what to do within 3 seconds, without instructions.
 4. **Is fact vs. interpretation obvious?** A user must never have to guess whether something is `official`, `estimated` or `analysis`. Badges are mandatory.
-5. **Does this help a decision?** Every element exists to move a buyer toward a confident shortlist. Decoration that does not serve comprehension goes.
+5. **Does this help a decision?** Every element exists to move a buyer toward a confident choice. Decoration that does not serve comprehension goes.
 
 ## Product feel
 

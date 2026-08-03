@@ -155,7 +155,7 @@ export default async function ProjectPage({ params }: Props) {
               )}
             >
               <MessageCircleQuestion data-icon="inline-start" aria-hidden />
-              Ask the planner
+              Ask AI Planner
             </Link>
           </div>
         </div>

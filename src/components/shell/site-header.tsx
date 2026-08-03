@@ -8,7 +8,7 @@ import {
   UserButton,
 } from "@clerk/nextjs"
 import { useQuery } from "convex/react"
-import { Bell, Menu } from "lucide-react"
+import { Bell, Menu, MessageCircleQuestion } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { useState } from "react"
@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils"
 const NAV_ITEMS = [
   { href: "/explore", label: "Find projects" },
   { href: "/upcoming", label: "Launch calendar" },
-  { href: "/planner", label: "Planner" },
+  { href: "/planner", label: "AI Planner", featured: true },
   { href: "/watchlist", label: "Saved & alerts" },
 ] as const
 
@@ -123,6 +123,7 @@ function SiteHeader() {
           <nav aria-label="Primary" className="hidden items-stretch md:flex">
             {NAV_ITEMS.map((item) => {
               const active = isActive(pathname, item.href)
+              const featured = "featured" in item && item.featured
               return (
                 <Link
                   key={item.href}
@@ -130,11 +131,17 @@ function SiteHeader() {
                   aria-current={active ? "page" : undefined}
                   className={cn(
                     "relative flex h-14 items-center px-3 text-sm font-medium transition-colors",
-                    active
-                      ? "text-teal-deep after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-teal"
-                      : "text-muted-foreground hover:text-foreground"
+                    featured
+                      ? "my-2 h-10 gap-1.5 rounded-lg bg-teal-subtle px-3 text-teal-deeper hover:bg-teal-subtle/70"
+                      : active
+                        ? "text-teal-deep after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-teal"
+                        : "text-muted-foreground hover:text-foreground",
+                    featured && active && "ring-1 ring-teal/40",
                   )}
                 >
+                  {featured && (
+                    <MessageCircleQuestion className="size-4" aria-hidden />
+                  )}
                   {item.label}
                   {item.href === "/planner" && <PlannerBusyDot />}
                 </Link>
@@ -187,6 +194,7 @@ function SiteHeader() {
               <nav aria-label="Mobile" className="flex flex-col gap-1 px-4">
                 {NAV_ITEMS.map((item) => {
                   const active = isActive(pathname, item.href)
+                  const featured = "featured" in item && item.featured
                   return (
                     <Link
                       key={item.href}
@@ -195,11 +203,17 @@ function SiteHeader() {
                       onClick={() => setMobileMenuOpen(false)}
                       className={cn(
                         "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
-                        active
-                          ? "bg-teal-subtle text-teal-deeper"
-                          : "text-foreground hover:bg-muted"
+                        featured
+                          ? "gap-2 bg-teal-subtle text-teal-deeper hover:bg-teal-subtle/70"
+                          : active
+                            ? "bg-teal-subtle text-teal-deeper"
+                            : "text-foreground hover:bg-muted",
+                        featured && active && "ring-1 ring-teal/40",
                       )}
                     >
+                      {featured && (
+                        <MessageCircleQuestion className="size-4" aria-hidden />
+                      )}
                       {item.label}
                       {item.href === "/planner" && <PlannerBusyDot />}
                     </Link>

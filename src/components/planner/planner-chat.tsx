@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useSyncExternalStore } from "react";
 import { Show, SignInButton } from "@clerk/nextjs";
-import { ArrowDown, SendHorizonal, Square } from "lucide-react";
+import { ArrowDown, ArrowRight, SendHorizonal, Square } from "lucide-react";
 import Link from "next/link";
 import { useStickToBottom } from "use-stick-to-bottom";
 
@@ -38,20 +38,20 @@ import { cn } from "@/lib/utils";
 
 const EXAMPLE_PROMPTS = [
   {
-    prompt: "Help me shortlist 4-room BTO projects under S$550k.",
+    prompt: "Which 4-room BTO projects start below S$550k?",
   },
   {
-    prompt: "Which 3-room projects in the East have the shortest waits?",
+    prompt: "Which BTO projects have the shortest waiting time?",
   },
   {
-    prompt: "How do Plus and Standard flat rules differ?",
+    prompt: "Should I apply for BTO or SBF?",
   },
 ];
 
 // The full hint wraps to two lines under the sm breakpoint, inflating the
 // empty composer (field-sizing: content) — mobile gets the short form.
-const PLACEHOLDER_FULL = "Budget, flat type, towns, how long you can wait…";
-const PLACEHOLDER_SHORT = "Budget, flat type, towns, wait…";
+const PLACEHOLDER_FULL = "Ask about BTO, SBF, prices, waits or flat rules…";
+const PLACEHOLDER_SHORT = "Ask about BTO or SBF…";
 
 // Per-tab persistence helpers live in @/lib/planner/chat-storage (shared with
 // the provider, which owns the restore read).
@@ -358,13 +358,12 @@ export function PlannerChat({
               <Card size="sm" className="mt-4 mb-4 bg-teal-subtle/30">
                 <CardContent>
                   <p className="text-xs font-medium text-teal-deeper">
-                    From the project you were viewing
+                    Question ready to edit
                   </p>
                   <p className="mt-1 text-sm text-ink">{suggestedPrompt}</p>
                   {input.includes(suggestedPrompt) ? (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      The prompt is in the message box for you to edit. Nothing
-                      has been sent.
+                      It is in the message box. Nothing has been sent.
                     </p>
                   ) : (
                     <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -388,8 +387,8 @@ export function PlannerChat({
             {!hydrated ? (
               <div aria-busy="true" aria-label="Loading planner">
                 <PageHeader
-                  title="The planner"
-                  lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
+                  title="AI Planner"
+                  lede="Ask about BTO and SBF projects, prices, waiting times or flat rules. Share your budget and needs when you want help choosing."
                 />
                 <div className="flex flex-col gap-2" aria-hidden>
                   <Skeleton className="h-12 w-full max-w-2xl rounded-2xl" />
@@ -400,8 +399,8 @@ export function PlannerChat({
             ) : messages.length === 0 ? (
               <div>
                 <PageHeader
-                  title="The planner"
-                  lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
+                  title="AI Planner"
+                  lede="Ask about BTO and SBF projects, prices, waiting times or flat rules. Share your budget and needs when you want help choosing."
                 />
                 {usingSavedPreferences ? (
                   <div
@@ -418,25 +417,29 @@ export function PlannerChat({
                     </Link>
                   </div>
                 ) : null}
-                <div className="divide-y divide-border border-y border-border">
+                <h2 className="mb-2 text-sm font-semibold text-ink">
+                  Try asking
+                </h2>
+                <div className="flex flex-col gap-2.5">
                   {EXAMPLE_PROMPTS.map((example) => (
                     <Button
                       key={example.prompt}
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => fillExample(example.prompt)}
-                      className="h-auto min-h-12 w-full justify-start rounded-none px-1 py-3 text-left whitespace-normal"
+                      className="h-auto min-h-12 w-full justify-between gap-3 px-3.5 py-3 text-left whitespace-normal"
                     >
-                      <span className="text-sm font-medium text-ink">
+                      <span className="min-w-0 flex-1 text-sm font-medium text-ink">
                         {example.prompt}
                       </span>
+                      <ArrowRight data-icon="inline-end" aria-hidden />
                     </Button>
                   ))}
                 </div>
                 <p className="mt-6 text-sm text-muted-foreground">
-                  AI analysis is based on the project database and cites every
-                  project fact. Search covers BTO and SBF; personalised ranking
-                  currently covers BTO launches only.
+                  Answers use the project database and cite project facts. You
+                  can search BTO and SBF options; recommendations currently
+                  cover BTO launches.
                 </p>
                 <nav
                   aria-label="Other project tools"
@@ -446,7 +449,7 @@ export function PlannerChat({
                     Find projects
                   </Link>
                   <Link href="/compare" className="text-teal-deep hover:underline">
-                    Compare shortlist
+                    Compare projects
                   </Link>
                 </nav>
               </div>
@@ -557,7 +560,7 @@ export function PlannerChat({
                 }
               }}
               placeholder={wideComposer ? PLACEHOLDER_FULL : PLACEHOLDER_SHORT}
-              aria-label="Message the planner"
+              aria-label="Message the AI Planner"
               enterKeyHint="send"
               rows={1}
               className="max-h-40 min-h-11 flex-1 resize-none bg-surface"

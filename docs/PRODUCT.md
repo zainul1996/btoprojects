@@ -14,9 +14,9 @@ The buyer's planning layer above official data. HDB provides authoritative facts
 
 ## North-star experience
 
-One conversation, one living shortlist. A user states budget, workplaces, parents' location, flat size and wait tolerance; the system converts this to constraints, shows a ranked shortlist with explanations and evidence links, and lets the user follow projects or areas.
+One conversation, one set of saved options. A user states budget, workplaces, parents' location, flat size and wait tolerance; the system converts this to constraints, shows ranked projects with explanations and evidence links, and lets the user follow projects or areas.
 
-**North-star metric:** % of active users who create a shortlist or watchlist after viewing project evidence.
+**North-star metric:** % of active users who save or compare a project after viewing project evidence.
 
 ## What to build first
 
@@ -39,7 +39,7 @@ One conversation, one living shortlist. A user states budget, workplaces, parent
 | Segment | Primary question | Response |
 |---|---|---|
 | Early planner | What's coming near parents/workplace? | Area watchlists, timeline, map, notifications |
-| Active applicant | Which launch should I apply for? | AI shortlist, comparison, affordability, trade-offs |
+| Active applicant | Which launch should I apply for? | AI recommendations, comparison, affordability, trade-offs |
 | Specific-needs buyer | Any 3Gen / short-wait / 5-room options? | Flat-type/feature filters, saved search |
 | Unsuccessful applicant | Wait, SBF, or resale? | Alternative path comparison + alerts |
 | Post-booking owner | What changed, when completion, what's nearby? | Construction lifecycle, neighbourhood updates |
@@ -47,7 +47,7 @@ One conversation, one living shortlist. A user states budget, workplaces, parent
 
 ## Primary navigation
 
-Explore · Upcoming · Projects · Compare · Planner · Watchlist
+Find projects · Launch calendar · AI Planner · Saved & alerts
 
 ## Project page blueprint
 

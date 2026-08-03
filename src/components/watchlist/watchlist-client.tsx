@@ -32,12 +32,12 @@ export function WatchlistClient({
     return (
       <EmptyState
         icon={Bell}
-        title="Keep your shortlist and planning context together"
+        title="Keep your saved projects and planning details together"
         hint="Sign in to follow projects and towns, receive alerts when official details change, and reuse private planner preferences."
         details={
           <dl className="grid divide-y divide-border border-y border-border text-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
             <div className="py-3 sm:px-4 sm:first:pl-0">
-              <dt className="font-medium text-ink">Shortlist</dt>
+              <dt className="font-medium text-ink">Saved projects</dt>
               <dd className="mt-1 text-muted-foreground">
                 Return to projects, towns and MRT stations you follow.
               </dd>
@@ -49,7 +49,7 @@ export function WatchlistClient({
               </dd>
             </div>
             <div className="py-3 sm:px-4 sm:last:pr-0">
-              <dt className="font-medium text-ink">Planner</dt>
+              <dt className="font-medium text-ink">AI Planner</dt>
               <dd className="mt-1 text-muted-foreground">
                 Reuse your budget, wait and private location preferences.
               </dd>

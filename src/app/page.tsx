@@ -3,17 +3,19 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bell,
-  CalendarClock,
-  CircleDollarSign,
-  House,
-  LockKeyhole,
-  MapPin,
+  BookOpenCheck,
   Scale,
 } from "lucide-react";
 
 import { Section } from "@/components/section";
 import { SourceBadge } from "@/components/source-badge";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "@/components/ui/input-group";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, createPageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -41,32 +43,6 @@ const HOME_TYPES = [
     action: "Browse SBF town pools",
   },
 ] as const;
-
-const PLANNING_INPUTS = [
-  {
-    icon: CircleDollarSign,
-    label: "Budget",
-    hint: "Include grants if relevant",
-  },
-  {
-    icon: House,
-    label: "Flat type",
-    hint: "Choose the sizes that work",
-  },
-  {
-    icon: MapPin,
-    label: "Preferred towns",
-    hint: "Add the places you would consider",
-  },
-  {
-    icon: CalendarClock,
-    label: "Move-in timing",
-    hint: "Share when you hope to collect keys",
-  },
-] as const;
-
-const PLANNER_START_PROMPT =
-  "Help me build a shortlist. Ask me about my budget, flat type, preferred towns and when I hope to collect the keys.";
 
 const HOME_FAQS = [
   {
@@ -112,61 +88,71 @@ export default function HomePage() {
       <section className="grid items-center gap-8 px-4 pt-10 pb-10 md:grid-cols-[minmax(0,1fr)_minmax(24rem,0.78fr)] md:gap-12 md:px-6 md:pt-20 md:pb-16">
         <div>
           <p className="text-sm font-medium text-teal-deep">
-            BTO and SBF decision support
+            BTO and SBF project guide
           </p>
           <h1 className="mt-3 max-w-2xl">
             Find an HDB home that fits your plans
           </h1>
           <p className="mt-4 max-w-xl text-base text-muted-foreground md:text-lg">
-            Work from your budget, timeline and preferred towns. See the
-            trade-offs clearly before building a shortlist.
+            Compare prices, locations and waiting times before deciding what to
+            apply for.
           </p>
         </div>
 
         <section
-          aria-labelledby="planning-brief-title"
+          aria-labelledby="ai-planner-title"
           className="rounded-xl border border-border bg-surface px-5 py-5 md:px-6 md:py-6"
         >
           <h2
-            id="planning-brief-title"
+            id="ai-planner-title"
             className="font-heading text-xl leading-snug font-semibold md:text-2xl"
           >
-            Your HDB planning brief
+            Ask the AI Planner
           </h2>
           <p className="mt-1.5 text-sm text-muted-foreground">
-            The planner asks four things before it ranks suitable BTO projects.
+            Ask about BTO and SBF projects, prices, locations, waiting times or
+            flat rules.
           </p>
 
-          <ul className="mt-4 divide-y divide-border" aria-label="Planning inputs">
-            {PLANNING_INPUTS.map(({ icon: Icon, label, hint }) => (
-              <li
-                key={label}
-                className="grid min-h-15 grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-3 py-3 md:grid-cols-[1.25rem_8.5rem_minmax(0,1fr)]"
-              >
-                <Icon className="size-5 text-teal-deep" aria-hidden />
-                <span className="text-sm font-medium text-ink">{label}</span>
-                <span className="col-start-2 text-xs text-muted-foreground md:col-start-3 md:text-right md:text-sm">
-                  {hint}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <Link
-            href={`/planner?prompt=${encodeURIComponent(PLANNER_START_PROMPT)}`}
-            className={cn(
-              buttonVariants({ size: "lg" }),
-              "mt-4 min-h-11 w-full",
-            )}
-          >
-            Build my shortlist
-            <ArrowRight data-icon="inline-end" aria-hidden />
-          </Link>
+          <form action="/planner" method="get" className="mt-5">
+            <InputGroup className="h-12 bg-background">
+              <InputGroupInput
+                name="prompt"
+                aria-label="Question for the AI Planner"
+                placeholder="Ask BTO or SBF"
+                maxLength={500}
+                required
+              />
+              <InputGroupAddon align="inline-end">
+                <InputGroupButton type="submit" variant="default" size="sm">
+                  Ask
+                  <ArrowRight data-icon="inline-end" aria-hidden />
+                </InputGroupButton>
+              </InputGroupAddon>
+            </InputGroup>
+          </form>
           <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
-            <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-            The planner uses your answers and cited project data. SBF search is
-            included.
+            <BookOpenCheck className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            Answers use cited project data. Recommendations currently cover BTO
+            launches.
           </p>
+          <nav
+            aria-label="Other ways to explore"
+            className="mt-4 flex flex-wrap gap-x-5 border-t border-border pt-2"
+          >
+            <Link
+              href="/explore"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-teal-deep hover:underline"
+            >
+              Find projects
+            </Link>
+            <Link
+              href="/upcoming"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-teal-deep hover:underline"
+            >
+              See launch dates
+            </Link>
+          </nav>
         </section>
       </section>
 
@@ -203,11 +189,11 @@ export default function HomePage() {
             <Scale className="mt-0.5 size-5 shrink-0 text-teal-deep" aria-hidden />
             <div>
               <h2 className="text-lg font-semibold">
-                Shortlist first, compare second
+                Save projects and compare them
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                Select projects as you browse, then compare their price,
-                timeline and location in one view.
+                Save projects as you browse, then compare their prices, waiting
+                times and locations in one view.
               </p>
             </div>
           </div>
@@ -216,7 +202,7 @@ export default function HomePage() {
               href="/compare"
               className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
             >
-              Compare shortlist
+              Compare projects
             </Link>
             <Link
               href="/watchlist"

@@ -360,7 +360,7 @@ export function CompareWorkspace({
       <EmptyState
         icon={ArrowLeftRight}
         title="Build a side-by-side comparison"
-        hint="Choose two BTO projects or SBF town pools. Your shortlist stays in this browser."
+        hint="Choose two BTO projects or SBF town pools. Your selected projects stay in this browser."
         details={<CompareStartSteps />}
         action={
           <Link href="/explore" className={buttonVariants()}>
