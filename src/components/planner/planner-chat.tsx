@@ -107,6 +107,28 @@ function PlannerSignInHint({ className }: { className?: string }) {
   );
 }
 
+function PlannerNewChatButton({
+  className,
+  onClick,
+}: {
+  className?: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      variant="link"
+      size="sm"
+      onClick={onClick}
+      className={cn(
+        "ml-auto h-auto min-h-11 px-0 py-2 text-xs text-muted-foreground hover:text-ink sm:min-h-0 sm:py-0",
+        className,
+      )}
+    >
+      New chat
+    </Button>
+  );
+}
+
 function constraintLabels(constraints: NonNullable<PlannerConstraints>): string[] {
   const labels: string[] = [];
   if (constraints.budgetMax) {
@@ -508,7 +530,12 @@ export function PlannerChat({
         )}
       >
         <div className="mx-auto w-full max-w-3xl px-4 md:px-6">
-          <PlannerSignInHint className="mb-1 sm:hidden" />
+          <div className="mb-1 flex items-center gap-3 empty:hidden sm:hidden">
+            <PlannerSignInHint className="min-w-0 flex-1" />
+            {messages.length > 0 && (
+              <PlannerNewChatButton onClick={newChat} />
+            )}
+          </div>
           <div className="flex items-end gap-2">
             <Textarea
               ref={textareaRef}
@@ -548,22 +575,10 @@ export function PlannerChat({
               </Button>
             )}
           </div>
-          <div
-            className={cn(
-              "mt-1 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground sm:mt-2",
-              messages.length === 0 && "hidden sm:flex",
-            )}
-          >
-            <PlannerSignInHint className="hidden sm:flex" />
+          <div className="mt-2 hidden flex-wrap items-center gap-x-3 text-xs text-muted-foreground sm:flex">
+            <PlannerSignInHint />
             {messages.length > 0 && (
-              <Button
-                variant="link"
-                size="sm"
-                onClick={newChat}
-                className="ml-auto h-auto min-h-11 px-0 py-2 text-xs text-muted-foreground hover:text-ink md:min-h-0 md:py-0"
-              >
-                New chat
-              </Button>
+              <PlannerNewChatButton onClick={newChat} />
             )}
           </div>
         </div>
