@@ -22,6 +22,10 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#f8f6f0", // --paper (warm off-white)
+  // Android Chrome: shrink the layout viewport when the software keyboard
+  // opens, so dvh-pinned surfaces (planner composer, filter sheet) sit above
+  // it natively. iOS ignores this — the planner tracks visualViewport instead.
+  interactiveWidget: "resizes-content",
 };
 
 export default function RootLayout({

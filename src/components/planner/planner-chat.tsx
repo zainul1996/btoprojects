@@ -27,6 +27,7 @@ import type {
   PlannerSuggestion,
   PlannerUIMessage,
 } from "@/lib/planner/types";
+import { useVisualViewportHeight } from "@/lib/use-visual-viewport";
 import { cn } from "@/lib/utils";
 
 const EXAMPLE_PROMPTS = [
@@ -34,6 +35,11 @@ const EXAMPLE_PROMPTS = [
   "Shortest wait 3-room in the East",
   "Compare Prime vs Standard for a first-timer",
 ];
+
+// The full hint wraps to two lines under the sm breakpoint, inflating the
+// empty composer (field-sizing: content) — mobile gets the short form.
+const PLACEHOLDER_FULL = "Budget, flat type, towns, how long you can wait…";
+const PLACEHOLDER_SHORT = "Budget, flat type, towns, wait…";
 
 // Per-tab persistence: sessionStorage survives SPA navigation and reloads but
 // dies with the tab, which matches the anonymous-session semantics we want.
@@ -114,16 +120,22 @@ function clearStoredChat(): void {
   }
 }
 
-function usePrefersReducedMotion(): boolean {
+function useMediaQuery(query: string): boolean {
   return useSyncExternalStore(
     (onStoreChange) => {
-      const query = window.matchMedia("(prefers-reduced-motion: reduce)");
-      query.addEventListener("change", onStoreChange);
-      return () => query.removeEventListener("change", onStoreChange);
+      const mql = window.matchMedia(query);
+      mql.addEventListener("change", onStoreChange);
+      return () => mql.removeEventListener("change", onStoreChange);
     },
-    () => window.matchMedia("(prefers-reduced-motion: reduce)").matches,
+    () => window.matchMedia(query).matches,
+    // Mobile-first server snapshot: the narrow-screen variant never causes a
+    // post-hydration layout shift on desktop, the wide one would on mobile.
     () => false,
   );
+}
+
+function usePrefersReducedMotion(): boolean {
+  return useMediaQuery("(prefers-reduced-motion: reduce)");
 }
 
 function textOf(message: PlannerUIMessage): string {
@@ -336,6 +348,10 @@ export function PlannerChat() {
   }, [messages, constraints, sessionId, input, hydrated]);
 
   const reducedMotion = usePrefersReducedMotion();
+  const wideComposer = useMediaQuery("(min-width: 640px)");
+  // px height while the software keyboard is open (iOS); null otherwise, so
+  // the CSS dvh height below carries desktop, Android and keyboard-closed.
+  const keyboardHeight = useVisualViewportHeight();
   const { scrollRef, contentRef, isAtBottom, scrollToBottom } =
     useStickToBottom(
       reducedMotion ? { resize: "instant", initial: "instant" } : {},
@@ -397,9 +413,15 @@ export function PlannerChat() {
 
   return (
     <div
+      style={
+        keyboardHeight === null ? undefined : { height: keyboardHeight }
+      }
       className={cn(
-        "mx-auto flex h-[calc(100svh-3.5rem)] w-full max-w-3xl flex-col px-4 md:px-6",
-        traySlugs.length > 0 && "pb-20",
+        // dvh (not svh): the composer tracks the bottom edge as mobile browser
+        // chrome shows/hides; 3.5rem is the sticky site header (h-14).
+        "mx-auto flex h-[calc(100dvh-3.5rem)] w-full max-w-3xl flex-col px-4 md:px-6",
+        // Clearing the compare tray is pointless while the keyboard covers it.
+        traySlugs.length > 0 && keyboardHeight === null && "pb-20",
       )}
     >
       <div className="relative min-h-0 flex-1">
@@ -420,7 +442,7 @@ export function PlannerChat() {
                       key={prompt}
                       type="button"
                       onClick={() => fillExample(prompt)}
-                      className="w-fit max-w-full rounded-full border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40"
+                      className="w-fit max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40"
                     >
                       {prompt}
                     </button>
@@ -504,7 +526,7 @@ export function PlannerChat() {
         )}
       </div>
 
-      <div className="-mx-4 border-t border-border bg-paper/95 px-4 pt-3 pb-4 backdrop-blur-sm md:-mx-6 md:px-6">
+      <div className="-mx-4 border-t border-border bg-paper/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm md:-mx-6 md:px-6">
         <div className="flex items-end gap-2">
           <Textarea
             ref={textareaRef}
@@ -516,8 +538,9 @@ export function PlannerChat() {
                 send(input);
               }
             }}
-            placeholder="Budget, flat type, towns, how long you can wait…"
+            placeholder={wideComposer ? PLACEHOLDER_FULL : PLACEHOLDER_SHORT}
             aria-label="Message the planner"
+            enterKeyHint="send"
             rows={1}
             className="max-h-40 min-h-11 flex-1 resize-none bg-surface"
           />
@@ -541,11 +564,15 @@ export function PlannerChat() {
             </Button>
           )}
         </div>
-        <div className="mt-2 flex items-center gap-3 text-xs text-muted-foreground">
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
           <Show when="signed-out">
             <p className="flex items-center gap-1">
               <SignInButton mode="modal">
-                <Button variant="link" size="sm" className="h-auto px-0 text-xs">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="h-auto px-0 py-2 text-xs md:py-0"
+                >
                   Sign in
                 </Button>
               </SignInButton>
@@ -557,7 +584,7 @@ export function PlannerChat() {
               variant="link"
               size="sm"
               onClick={newChat}
-              className="ml-auto h-auto px-0 text-xs text-muted-foreground hover:text-ink"
+              className="ml-auto h-auto px-0 py-2 text-xs text-muted-foreground hover:text-ink md:py-0"
             >
               New chat
             </Button>
@@ -646,9 +673,11 @@ function AssistantTurn({
   );
 }
 
-// Same quiet outline pill as the example prompts on the empty state.
+// Same quiet outline chip as the example prompts on the empty state.
+// rounded-2xl (not full): prompts wrap to several lines on phones, and a
+// stadium radius on a tall block reads as a sausage, not a chip.
 const SUGGESTION_CHIP_CLASS =
-  "max-w-full rounded-full border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40";
+  "max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40";
 
 function SuggestionChip({
   suggestion,

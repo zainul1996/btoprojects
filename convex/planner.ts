@@ -100,7 +100,11 @@ export const clearSession = authedMutation({
 export const allForRanking = internalQuery({
   args: {},
   handler: async (ctx) => {
-    const projects = await ctx.db.query("projects").collect();
+    // Exclude ingestion shells (totalUnits 0 placeholder) — no supply/price/
+    // completion data yet, so they would only pollute rankings.
+    const projects = (await ctx.db.query("projects").collect()).filter(
+      (project) => project.totalUnits > 0,
+    );
     return await Promise.all(
       projects.map(async (project) => {
         const [town, exercise, flatTypes] = await Promise.all([
@@ -148,7 +152,10 @@ export const forRanking = query({
   args: {},
   returns: v.array(rankableProjectValidator),
   handler: async (ctx) => {
-    const projects = await ctx.db.query("projects").collect();
+    // Same shell exclusion as allForRanking (placeholder totalUnits 0).
+    const projects = (await ctx.db.query("projects").collect()).filter(
+      (project) => project.totalUnits > 0,
+    );
     return await Promise.all(
       projects.map(async (project) => {
         const [town, exercise, flatTypes] = await Promise.all([

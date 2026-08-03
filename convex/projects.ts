@@ -83,6 +83,10 @@ export const list = query({
     const searchNeedle = args.search?.trim().toLowerCase();
 
     return withDetails.filter(({ project, town, flatTypes }) => {
+      // Auto-created ingestion shells carry placeholder zeros (no supply,
+      // price or completion data) until enrichment — keep them off public
+      // browsing so cards never render "~0 mo wait" with no price.
+      if (project.totalUnits === 0) return false;
       if (classification && project.classification !== classification)
         return false;
       if (region && project.region !== region) return false;

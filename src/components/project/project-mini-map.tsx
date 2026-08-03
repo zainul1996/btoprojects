@@ -24,6 +24,9 @@ export function ProjectMiniMap({
   label: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Placeholder 0,0 (ingestion shell awaiting geocode) → render nothing.
+  // Kept after the hooks so hook order never changes between renders.
+  const hasCoords = Math.abs(lat) >= 0.01 || Math.abs(lng) >= 0.01;
 
   useEffect(() => {
     const container = containerRef.current;
@@ -45,6 +48,8 @@ export function ProjectMiniMap({
       map.remove();
     };
   }, [lat, lng]);
+
+  if (!hasCoords) return null;
 
   return (
     <div

@@ -133,7 +133,7 @@ function CompareTray() {
   if (slugs.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-50 flex justify-center px-4">
+    <div className="pointer-events-none fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
       <div className="pointer-events-auto flex w-full max-w-xl items-center gap-2 rounded-full border border-border bg-surface py-2 pr-2 pl-4 shadow-lg shadow-navy/10">
         <ArrowLeftRight className="size-4 shrink-0 text-teal-deep" aria-hidden />
         <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">

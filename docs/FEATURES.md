@@ -24,15 +24,16 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 |---|---|---|---|
 | F1.1 | Convex schema v1 (17 tables) | Done | commit a773993; projectVersions/reviewQueue deferred (D-be3) |
 | F1.2 | Snapshot storage with content hashing | Deferred | Needs Blob/R2; arrives with live HDB ingestion phase |
-| F1.3 | HDB launch/project page adapter | Deferred | Per D-seed: snapshot-based for now, live fetch pre-launch |
-| F1.4 | HDB announcements adapter | Deferred | Same as F1.3 |
-| F1.5 | data.gov.sg adapters | Done | Resale: 696 real rows synced (job logged). Schools: built, not run. Construction polygons: not yet |
-| F1.6 | OneMap client (token cache + auto-refresh, geocode) | Done | 72h JWT cached in kv table, cron refresh |
+| F1.3 | HDB launch/project page adapter | Done (v1) | Official Flat Portal apprates JSON (`services-homes.hdb.gov.sg`, robots-allowed): exercise windows, classification, flat supply. No prices/completion/coords in source — MyNiceHome parser remains the future track for those |
+| F1.4 | HDB announcements adapter | Deferred | Pre-launch discovery needs press-release parsing; www.hdb.gov.sg WAF-blocks agents |
+| F1.5 | data.gov.sg adapters | Done | Resale v2 (`convex/ingest/resale.ts`): all towns, incremental month-replace, kv cursor; 237k rows/115 months available. Schools: legacy built, not run |
+| F1.6 | OneMap client (token cache + auto-refresh, geocode) | Done | 72h JWT cached in kv table, cron refresh; ingestion geocoder re-auths on expiry (env tokens expire) |
 | F1.7 | LLM fallback extraction | Deferred | With HDB parser phase |
 | F1.8 | Reconciliation job + review queue | Deferred | D-be3 |
 | F1.9 | Publish → alert trigger chain | Done | alertsEngine.notifyProjectUpdate → watchlist match → Telegram batch |
 | F1.10 | Parser monitoring + Sentry | Deferred | ingestionJobs table done; Sentry account pending |
 | F1.11 | Seed: 12 real 2026 projects with full provenance | Done | 12 projects, 36 flat types, 228 facts, 11 sources, 27 towns, 50 MRT stations |
+| F1.12 | Ingestion framework (`convex/ingest/`) | Done | Shared lib (job log, source rows, guarded fact writes — never downgrades "official") + per-source modules; daily crons for resale/geocode/HDB launches |
 
 ## MVP — Explorer & project pages
 

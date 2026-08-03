@@ -8,11 +8,12 @@
 
 | Data | Primary source | Method | Refresh | Notes |
 |---|---|---|---|---|
-| Launch/project facts | HDB sales exercise & project pages | Fetch + deterministic parser; LLM fallback on layout change | Daily; hourly in launch week | Store snapshots + diffs |
+| Launch/project facts | HDB Flat Portal application-rate JSON (`services-homes.hdb.gov.sg`, robots-allowed); project pages later | Fetch + deterministic parser; LLM fallback on layout change | Daily (02:23 SGT cron) | No prices/completion in JSON — seeded until MyNiceHome parser track |
 | Upcoming exercises | HDB announcements/news releases | Structured extraction | Daily | Label `official` only when published by HDB |
 | SBF inventory | HDB sales exercise pages | Fetch + parser | Daily during exercise | Never "predict" exact units |
 | Construction polygons | data.gov.sg HDB under-construction (GeoJSON) — dataset `d_930e662ac7e141fe3fd2a6efa5216902` | API/download ingestion | Weekly | Project geometry + status |
-| Resale transactions | data.gov.sg resale prices (Jan 2017+) — `d_8b84c4ee58e3cfc0ece0d773c8ca6abc`; medians — `d_b51323a474ba789fb4cc3db58a3116d4` | API/download ingestion | Daily/weekly | Comparables only, not future value |
+| Resale transactions | data.gov.sg resale prices (Jan 2017+) — `d_8b84c4ee58e3cfc0ece0d773c8ca6abc`; medians — `d_b51323a474ba789fb4cc3db58a3116d4` | API/download ingestion (streaming windowed parse — Convex 64MB heap) | Twice monthly, 10th & 20th (03:07 SGT cron) | Comparables only, not future value |
+| Project geocodes | OneMap elastic search | Authenticated API + town-fallback tiers | Daily (04:11 SGT cron; zero calls when fresh) | Shared token cache with runtime `onemap_token` |
 | Schools | MOE school directory, data.gov.sg — `d_688b934f82c1059ed0a6993d2a829089` | API/download + geocode | Quarterly/monthly | Distance only; no admissions claims |
 | Routes/amenities | OneMap search, routing, themes | Authenticated API + caching | On demand + scheduled cache | Respect quotas & terms |
 | Planning context | URA public plans/releases | Approved datasets / manual curation | Monthly | Separate adopted plans from speculation |
@@ -82,3 +83,42 @@ Never commit secrets; store in `.env.local` (gitignored) and Vercel/Convex envir
 - [ ] URA dataset terms confirmed
 - [ ] Snapshot storage working with content-hash dedup
 - [ ] Review queue triage process defined (who approves conflicts, SLA)
+
+## 3 Aug 2026 — HDB BTO launch ingestion source selection (Track W1, `convex/ingest/hdb.ts`)
+
+**Chosen source: HDB Flat Portal application-rate JSON files** — official, machine-readable, no auth, robots-clean.
+
+| Candidate | Verdict | Why |
+|---|---|---|
+| `services-homes.hdb.gov.sg/sales/files/apprates/BTO{YYYYMM}.json` | **CHOSEN** | Static JSON behind the public "Flat Supply & Applications Received" pages. Per exercise: application window (`launch_start_date`/`launch_end_date`), `is_final_update`, per estate×flat-type rows with project names, classifications, `flat_supply`, applicant counts and application rates. |
+| `POST services-homes.hdb.gov.sg/api/bp29/sf/v1/get-launch-availability` (and `get-launch-details`) | Secondary signal | The Flat Portal SPA's own API (base URL from `/sales/app_info/app_info.js`). GET 403s (`MissingAuthenticationTokenException` — API Gateway); **POST works** with `Content-Type: application/json` + a random-UUID `Salesform-Id` header. Returns `{"code":2002,"message":"There is no sales launch at the moment."}` between exercises; during a window it carries the active `launch_qtr`. Used only to detect off-cycle launches. |
+| data.gov.sg catalogue | Rejected for launches | Only aggregate HDB statistics (price ranges by FY `d_2d493bdcc1d9a44828b6e71cb095b88d`, bookings `d_e6079cb5bf0c2450372b1054f37e6e79`, units sold/rented `d_67966e5fd5dce14cf9fa5f0bc5164faf`). No per-launch/per-project BTO dataset exists. `api-production.data.gov.sg/v2/public/api/datasets?search=` ignores the search term (returns a fixed list) — catalogue search is effectively broken; dataset discovery via web search instead. |
+| `www.hdb.gov.sg` BTO pages / press releases | Rejected (for now) | robots.txt allows content paths (`Allow: /`, only e-service/transactional paths disallowed), BUT the site WAF returns 403 for non-browser User-Agents — even `GET /robots.txt` needs a browser UA. Press-release HTML parsing remains a future option for *pre-launch* announcements (town lists, next-exercise dates). |
+| `www.mynicehome.gov.sg` sales-launch pages | Rejected (for now) | robots allows (`Allow: /` except `/search`), but pages are Next.js RSC payloads (~860 KB HTML) — brittle to parse. Carries prices/waiting times the apprates JSON lacks; candidate for a later snapshot+parser track. |
+
+**robots.txt verdicts (fetched 3 Aug 2026):**
+- `services-homes.hdb.gov.sg/robots.txt` → `User-agent: *` / `Allow: /` — full crawl permission.
+- `www.mynicehome.gov.sg/robots.txt` → `Allow: /`, `Disallow: /search`.
+- `www.hdb.gov.sg/robots.txt` → long e-service disallow list + final `Allow: /`; sitemap at `/sitemap.xml`. No BTO/content path disallowed; WAF is the practical blocker, not robots.
+
+**Chosen-source specifics:**
+- URL pattern: `https://services-homes.hdb.gov.sg/sales/files/apprates/BTO{YYYYMM}.json` (e.g. `BTO202606.json`); SBF equivalents exist as `SBF{YYYYMM}.json` (not ingested yet).
+- Missing quarters 302 → `/sales/error/404`; fetch with `redirect: "manual"` and treat non-200/non-JSON as absent.
+- Retention appears to be recent exercises only: on 3 Aug 2026, `BTO202602` and `BTO202606` resolve; `BTO202510` and older already 302. **Run regularly; no backfill possible from this source.**
+- A quarter's file appears when the exercise opens — pre-launch discovery is impossible here.
+- Request budget per run: 1 POST (live signal) + ≤9 GET probes (Feb/Jun/Jul/Oct × current+previous SGT year, +next Feb in Nov/Dec), serial with 400 ms gaps. Descriptive UA `BTOProjects.sg launch-ingest/1.0` is accepted (no WAF on this host).
+
+**What the source yields vs what `projects` wants (gap list):**
+
+| Field | In source? | Ingestion behaviour |
+|---|---|---|
+| exercise key/label/window (`applicationEnd`) | ✅ `launch_start/end_date` | exercises upsert; `applicationDeadline` fact per project (official) |
+| project name + town | ✅ | match by normalised name+town; shell created if new |
+| classification (Standard/Plus/Prime) | ✅ per project | fact `classification` (official) |
+| totalUnits | ⚠️ partial | only when every estate row naming the project is single-project (verified: sums match seed, e.g. Redhill Peaks 1052) |
+| flat-type units | ⚠️ partial | only single-project rows; shared rows (split unpublished) skipped; `5-Room/3Gen` combined rows stored verbatim as `flatType.5-Room/3Gen.units` |
+| application rates per household type | ✅ per estate×flat-type row | NOT ingested yet (attribution ambiguous for shared rows) — future extension |
+| prices (min/max per flat type) | ❌ | needs MyNiceHome/press-release parser |
+| estimatedCompletion / wait months | ❌ | needs MyNiceHome (waiting-time text) or manual research |
+| lat/lng, nearest MRT, schools | ❌ | OneMap geocode track (W1 parallel agent) |
+| SBF inventory | separate files | `SBF{YYYYMM}.json` — future extension |

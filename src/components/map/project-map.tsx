@@ -23,6 +23,15 @@ export type ProjectMapItem = {
   extra?: string;
 };
 
+/**
+ * Ingestion-created shell projects carry placeholder 0,0 coordinates until
+ * the geocoder runs — never draw those markers (0,0 sits in the ocean off
+ * Africa) or let them drag bounds fitting away from Singapore.
+ */
+function hasRealCoords(p: ProjectMapItem): boolean {
+  return Math.abs(p.lat) >= 0.01 || Math.abs(p.lng) >= 0.01;
+}
+
 type ProjectMapProps = {
   projects: ProjectMapItem[];
   focusedSlug?: string | null;
@@ -51,14 +60,14 @@ export function ProjectMap({
   const readyRef = useRef(false);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const popupRef = useRef<maplibregl.Popup | null>(null);
-  const projectsRef = useRef<ProjectMapItem[]>(projects);
+  const projectsRef = useRef<ProjectMapItem[]>(projects.filter(hasRealCoords));
   const focusedSlugRef = useRef<string | null>(focusedSlug);
   const onMarkerClickRef = useRef<typeof onMarkerClick>(onMarkerClick);
   const fittedIdentityRef = useRef<string | null>(null);
   const initialZoomRef = useRef(zoom);
 
   useEffect(() => {
-    projectsRef.current = projects;
+    projectsRef.current = projects.filter(hasRealCoords);
   }, [projects]);
 
   useEffect(() => {
