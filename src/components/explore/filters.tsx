@@ -315,6 +315,10 @@ export function ExploreFilters({
           <span>{formatSgd(PRICE_MIN)}</span>
           <span>Any</span>
         </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          SBF pool classifications and prices can be unavailable, so these
+          filters may exclude some pools.
+        </p>
       </div>
 
       <div className="space-y-2">

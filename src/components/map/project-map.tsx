@@ -138,7 +138,7 @@ export function ProjectMap({
     const link = document.createElement("a");
     link.className = "bto-map-popup__link";
     link.href = `/projects/${p.slug}`;
-    link.textContent = "View project →";
+    link.textContent = isSbf ? "View SBF town pool →" : "View BTO project →";
     root.appendChild(link);
 
     return root;

@@ -18,7 +18,7 @@ export type Classification = "Standard" | "Plus" | "Prime" | "Unclassified";
 
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 export type SaleType = (typeof SALE_TYPES)[number];
-export type ExplorerView = "split" | "list";
+export type ExplorerView = "map" | "list" | "exercise";
 export type ExplorerSort = "price" | "wait" | "name";
 
 export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
@@ -82,6 +82,7 @@ export type ExplorerFilters = {
   maxPrice: number | undefined;
   maxWait: number | undefined;
   view: ExplorerView;
+  sort: ExplorerSort;
 };
 
 export const DEFAULT_FILTERS: ExplorerFilters = {
@@ -94,7 +95,8 @@ export const DEFAULT_FILTERS: ExplorerFilters = {
   flat: undefined,
   maxPrice: undefined,
   maxWait: undefined,
-  view: "split",
+  view: "map",
+  sort: "price",
 };
 
 type SearchParamRecord = Record<string, string | string[] | undefined>;
@@ -125,6 +127,7 @@ export function parseExplorerParams(params: SearchParamRecord): ExplorerFilters 
   const status = first(params.status);
   const sale = first(params.sale);
   const view = first(params.view);
+  const sort = first(params.sort);
 
   return {
     q: first(params.q) ?? "",
@@ -144,7 +147,15 @@ export function parseExplorerParams(params: SearchParamRecord): ExplorerFilters 
       : undefined,
     maxPrice: parseNumber(first(params.price)),
     maxWait: parseNumber(first(params.wait)),
-    view: view === "list" ? "list" : "split",
+    // `split` was the original name for the map-with-results view.
+    view:
+      view === "list" || view === "exercise"
+        ? view
+        : "map",
+    sort:
+      sort === "wait" || sort === "name"
+        ? sort
+        : "price",
   };
 }
 
@@ -174,7 +185,8 @@ export function serializeExplorerParams(filters: ExplorerFilters): string {
   if (filters.flat) sp.set("flat", filters.flat);
   if (filters.maxPrice !== undefined) sp.set("price", String(filters.maxPrice));
   if (filters.maxWait !== undefined) sp.set("wait", String(filters.maxWait));
-  if (filters.view !== "split") sp.set("view", filters.view);
+  sp.set("view", filters.view);
+  if (filters.sort !== "price") sp.set("sort", filters.sort);
   return sp.toString();
 }
 

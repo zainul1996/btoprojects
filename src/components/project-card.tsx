@@ -81,7 +81,9 @@ export function ProjectCard({
       <Link
         href={`/projects/${project.slug}`}
         className="absolute inset-0 z-0 rounded-xl"
-        aria-label={`View ${project.name}`}
+        aria-label={
+          isSbf ? `View ${project.name} SBF town pool` : `View ${project.name}`
+        }
       />
       <CardContent className="relative z-10 pointer-events-none flex flex-col gap-3 p-5">
         <div className="flex items-start justify-between gap-3">
@@ -104,7 +106,9 @@ export function ProjectCard({
             >
               {isSbf ? "SBF" : "BTO"}
             </Badge>
-            <LifecycleChip stage={project.lifecycleStatus} />
+            {/* SBF is a sale format, not a project lifecycle stage. Its
+                exercise badge identifies it without a duplicate "SBF" chip. */}
+            {!isSbf ? <LifecycleChip stage={project.lifecycleStatus} /> : null}
           </div>
         </div>
 
@@ -137,7 +141,11 @@ export function ProjectCard({
                 <span className="text-sm font-normal text-muted-foreground">From </span>
                 <Price value={knownPrice} />
               </p>
-            ) : isAnnounced || isSbf ? (
+            ) : isSbf ? (
+              <p className="text-sm font-medium text-muted-foreground">
+                Price data unavailable
+              </p>
+            ) : isAnnounced ? (
               <p className="text-sm font-medium text-muted-foreground">
                 Prices at launch
               </p>

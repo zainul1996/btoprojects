@@ -4,9 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
-import { List, Map as MapIcon, SearchX, SlidersHorizontal, X } from "lucide-react";
+import {
+  CalendarRange,
+  List,
+  Map as MapIcon,
+  SearchX,
+  SlidersHorizontal,
+  X,
+} from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
+import { ExerciseResults } from "@/components/explore/exercise-results";
 import { ExploreFilters } from "@/components/explore/filters";
 import {
   activeFilterChips,
@@ -77,6 +85,19 @@ function waitSortKeyOf(summary: ProjectSummary): number {
   return summary.project.saleType === "sbf" ? 0 : Infinity;
 }
 
+function resultCountLabel(items: ProjectSummary[]): string {
+  let bto = 0;
+  let sbf = 0;
+  for (const { project } of items) {
+    if (project.saleType === "sbf") sbf += 1;
+    else bto += 1;
+  }
+  const parts: string[] = [];
+  if (bto > 0) parts.push(`${bto} project${bto === 1 ? "" : "s"}`);
+  if (sbf > 0) parts.push(`${sbf} SBF pool${sbf === 1 ? "" : "s"}`);
+  return parts.length > 0 ? parts.join(" · ") : "0 results";
+}
+
 function CardSkeleton() {
   return (
     <div
@@ -117,7 +138,6 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const [filters, setFilters] = useState<ExplorerFilters>(() =>
     parseExplorerParams(initialParams),
   );
-  const [sort, setSort] = useState<ExplorerSort>("price");
   const [focusedSlug, setFocusedSlug] = useState<string | null>(null);
   const cardRefs = useRef(new Map<string, HTMLDivElement | null>());
 
@@ -131,7 +151,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const patch = (p: Partial<ExplorerFilters>) =>
     setFilters((current) => ({ ...current, ...p }));
-  const reset = () => setFilters({ ...DEFAULT_FILTERS });
+  const reset = () =>
+    setFilters((current) => ({
+      ...DEFAULT_FILTERS,
+      view: current.view,
+      sort: current.sort,
+    }));
 
   useEffect(() => {
     const qs = serializeExplorerParams({ ...filters, q: debouncedQ });
@@ -162,6 +187,10 @@ export function Explorer({ initialParams }: ExplorerProps) {
   }, [debouncedQ, filters]);
 
   const results = useQuery(api.projects.list, queryArgs);
+  const exerciseRows = useQuery(
+    api.exercises.list,
+    filters.view === "exercise" ? {} : "skip",
+  );
 
   // Status and sale type are client-side UI filters (status depends on
   // "today"; sale-type counts must reflect every other filter), so they
@@ -220,7 +249,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
           )
         : [...statusBase]
     );
-    switch (sort) {
+    switch (filters.sort) {
       case "wait":
         // Unknown waits sort last, never first as a misleadingly short wait.
         narrowed.sort((a, b) => waitSortKeyOf(a) - waitSortKeyOf(b));
@@ -234,7 +263,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
         );
     }
     return narrowed;
-  }, [statusBase, filters.status, sort, today]);
+  }, [statusBase, filters.status, filters.sort, today]);
 
   const mapItems = useMemo(
     () =>
@@ -265,7 +294,9 @@ export function Explorer({ initialParams }: ExplorerProps) {
   );
 
   const chips = activeFilterChips(filters);
-  const isSplit = filters.view === "split";
+  const isMap = filters.view === "map";
+  const isExercise = filters.view === "exercise";
+  const showMap = isMap && visible?.length !== 0;
 
   const handleMarkerClick = (slug: string) => {
     setFocusedSlug(slug);
@@ -277,8 +308,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const resultHeader = (
     <div
       className={cn(
-        "sticky top-14 z-30 space-y-2 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm",
-        isSplit && "lg:top-0",
+        "sticky top-14 z-30 space-y-2 border-b border-border bg-background/95 px-4 pt-3 pb-12 backdrop-blur-sm sm:py-3",
+        isMap && "lg:top-0",
       )}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -336,57 +367,75 @@ export function Explorer({ initialParams }: ExplorerProps) {
           {visible === undefined ? (
             <Skeleton className="inline-block h-4 w-20 align-middle" />
           ) : (
-            <>
-              <span className="tnum font-medium text-ink">
-                {visible.length}
-              </span>{" "}
-              {visible.length === 1 ? "project" : "projects"}
-            </>
+            <span className="tnum font-medium text-ink">
+              {resultCountLabel(visible)}
+            </span>
           )}
         </div>
 
-        <div className="ml-auto flex items-center gap-2">
-          <Select
-            items={SORT_ITEMS}
-            value={sort}
-            onValueChange={(value) => setSort(value as ExplorerSort)}
-          >
-            <SelectTrigger size="sm" aria-label="Sort results">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_ITEMS.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+          {!isExercise ? (
+            <Select
+              items={SORT_ITEMS}
+              value={filters.sort}
+              onValueChange={(value) =>
+                patch({ sort: value as ExplorerSort })
+              }
+            >
+              <SelectTrigger
+                size="sm"
+                className="max-w-36"
+                aria-label="Sort results"
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SORT_ITEMS.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          ) : null}
 
           <div
             role="group"
             aria-label="Results view"
-            className="flex items-center rounded-lg border border-border p-0.5"
+            className="absolute right-4 bottom-3 left-4 flex items-center rounded-lg border border-border bg-background p-0.5 sm:static lg:w-full lg:justify-center"
           >
             <Button
               type="button"
-              variant={isSplit ? "ghost" : "secondary"}
+              variant={isMap ? "secondary" : "ghost"}
               size="sm"
-              aria-pressed={!isSplit}
-              onClick={() => patch({ view: "list" })}
+              className="flex-1 sm:flex-none"
+              aria-pressed={isMap}
+              onClick={() => patch({ view: "map" })}
             >
-              <List aria-hidden />
-              <span className="hidden sm:inline">List</span>
+              <MapIcon aria-hidden />
+              <span>Map</span>
             </Button>
             <Button
               type="button"
-              variant={isSplit ? "secondary" : "ghost"}
+              variant={filters.view === "list" ? "secondary" : "ghost"}
               size="sm"
-              aria-pressed={isSplit}
-              onClick={() => patch({ view: "split" })}
+              className="flex-1 sm:flex-none"
+              aria-pressed={filters.view === "list"}
+              onClick={() => patch({ view: "list" })}
             >
-              <MapIcon aria-hidden />
-              <span className="hidden sm:inline">Map + list</span>
+              <List aria-hidden />
+              <span>List</span>
+            </Button>
+            <Button
+              type="button"
+              variant={isExercise ? "secondary" : "ghost"}
+              size="sm"
+              className="flex-1 sm:flex-none"
+              aria-pressed={isExercise}
+              onClick={() => patch({ view: "exercise" })}
+            >
+              <CalendarRange aria-hidden />
+              <span>By exercise</span>
             </Button>
           </div>
         </div>
@@ -419,7 +468,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
   );
 
   const resultList = (
-    <div className={cn("space-y-3 p-4", !isSplit && "mx-auto w-full max-w-3xl")}>
+    <div className={cn("space-y-3 p-4", !showMap && "mx-auto w-full max-w-3xl")}>
       {visible === undefined ? (
         <>
           <CardSkeleton />
@@ -430,8 +479,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
       ) : visible.length === 0 ? (
         <EmptyState
           icon={SearchX}
-          title="No projects match"
-          hint="Try clearing a filter or widening the price range."
+          title="No results match"
+          hint="Try clearing a filter or widening the price or wait range."
           action={
             hasActiveFilters(filters) ? (
               <Button type="button" variant="outline" size="sm" onClick={reset}>
@@ -463,43 +512,76 @@ export function Explorer({ initialParams }: ExplorerProps) {
     </div>
   );
 
+  const exerciseContent =
+    visible === undefined ? (
+      <ExerciseResults summaries={[]} exerciseRows={undefined} />
+    ) : visible.length === 0 ? (
+      resultList
+    ) : (
+      <ExerciseResults summaries={visible} exerciseRows={exerciseRows} />
+    );
+
   return (
-    <div className="flex flex-col lg:flex-row lg:items-start">
-      {/* Desktop filter rail */}
-      <aside className="sticky top-14 order-3 hidden h-[calc(100svh-3.5rem)] w-60 shrink-0 overflow-y-auto border-r border-border px-5 py-6 lg:order-1 lg:block">
-        <ExploreFilters
-          filters={filters}
-          onPatch={patch}
-          onReset={reset}
-          statusCounts={statusCounts}
-          saleCounts={saleCounts}
-        />
-      </aside>
-
-      {/* Map — above the list on mobile, right column on desktop */}
-      {isSplit ? (
-        <div className="order-1 h-[45svh] lg:order-3 lg:sticky lg:top-14 lg:h-[calc(100svh-3.5rem)] lg:flex-1">
-          <ProjectMap
-            projects={mapItems}
-            focusedSlug={focusedSlug}
-            onMarkerClick={handleMarkerClick}
-          />
+    <>
+      <header className="border-b border-border bg-background px-4 py-3 md:px-6">
+        <div className="mx-auto max-w-6xl">
+          <h1 className="text-xl font-semibold tracking-tight text-ink">
+            Find projects
+          </h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Explore BTO projects and SBF town pools by place, criteria or sales
+            exercise.
+          </p>
         </div>
-      ) : null}
+      </header>
 
-      {/* List column */}
-      <section
-        aria-label="Project results"
-        className={cn(
-          "order-2 min-w-0",
-          isSplit
-            ? "lg:sticky lg:top-14 lg:h-[calc(100svh-3.5rem)] lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-border"
-            : "flex-1",
-        )}
-      >
-        {resultHeader}
-        {resultList}
-      </section>
-    </div>
+      <div className="flex flex-col lg:flex-row lg:items-start">
+        {/* Desktop filter rail */}
+        <aside
+          className={cn(
+            "order-4 hidden w-60 shrink-0 overflow-y-auto border-r border-border px-5 py-6 lg:order-1 lg:block lg:max-h-[calc(100svh-3.5rem)]",
+            "lg:sticky lg:top-14",
+            showMap && "lg:h-[calc(100svh-8rem)]",
+          )}
+        >
+          <ExploreFilters
+            filters={filters}
+            onPatch={patch}
+            onReset={reset}
+            statusCounts={statusCounts}
+            saleCounts={saleCounts}
+          />
+        </aside>
+
+        {/* `contents` puts the mobile controls above the map while retaining a
+            dedicated, scrollable list column on desktop. */}
+        <section
+          aria-label="Project results"
+          className={cn(
+            "contents min-w-0 lg:order-2 lg:block",
+            showMap
+              ? "lg:h-[calc(100svh-8rem)] lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:border-r lg:border-border"
+              : "lg:flex-1",
+          )}
+        >
+          {resultHeader}
+          <div className="order-3 lg:contents">
+            {isExercise ? exerciseContent : resultList}
+          </div>
+        </section>
+
+        {/* A zero-result map is omitted: the teaching empty state carries more
+            information than a blank island view. */}
+        {showMap ? (
+          <div className="order-2 h-[42svh] min-h-72 lg:order-3 lg:h-[calc(100svh-8rem)] lg:min-h-0 lg:flex-1">
+            <ProjectMap
+              projects={mapItems}
+              focusedSlug={focusedSlug}
+              onMarkerClick={handleMarkerClick}
+            />
+          </div>
+        ) : null}
+      </div>
+    </>
   );
 }
