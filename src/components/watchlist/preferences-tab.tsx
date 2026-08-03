@@ -24,7 +24,7 @@ import {
   DEFAULT_FILTERS,
   serializeExplorerParams,
 } from "@/components/explore/filter-model";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -752,9 +752,9 @@ export function PreferencesTab({
             </Button>
           ) : null}
           {!dirty ? (
-            <Button variant="link" render={<Link href={explorerHref} />}>
+            <Link href={explorerHref} className={buttonVariants({ variant: "link" })}>
               Explore a starting match
-            </Button>
+            </Link>
           ) : null}
         </div>
         {!dirty ? (

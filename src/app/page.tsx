@@ -11,7 +11,7 @@ import {
 
 import { Section } from "@/components/section";
 import { SourceBadge } from "@/components/source-badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/card";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, createPageMetadata } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 
 export const metadata: Metadata = createPageMetadata({
   title: "Singapore BTO and SBF project guide",
@@ -109,36 +110,34 @@ export default function HomePage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 p-5 pt-2 md:p-6 md:pt-2">
-            <Button
-              size="lg"
-              className="w-full"
-              render={<Link href="/planner" />}
-              nativeButton={false}
+            <Link
+              href="/planner"
+              className={cn(buttonVariants({ size: "lg" }), "min-h-11 w-full")}
             >
               Plan with AI
-              <ArrowRight aria-hidden />
-            </Button>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <Button
-                size="lg"
-                variant="outline"
-                className="w-full"
-                render={<Link href="/explore" />}
-                nativeButton={false}
+              <ArrowRight data-icon="inline-end" aria-hidden />
+            </Link>
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href="/explore"
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "min-h-11 w-full px-2 text-xs sm:text-sm",
+                )}
               >
                 <Map aria-hidden />
-                Explore the map
-              </Button>
-              <Button
-                size="lg"
-                variant="ghost"
-                className="w-full"
-                render={<Link href="/upcoming" />}
-                nativeButton={false}
+                Explore projects
+              </Link>
+              <Link
+                href="/upcoming"
+                className={cn(
+                  buttonVariants({ variant: "ghost" }),
+                  "min-h-11 w-full px-2 text-xs sm:text-sm",
+                )}
               >
                 <CalendarDays aria-hidden />
-                View launch calendar
-              </Button>
+                Launch calendar
+              </Link>
             </div>
           </CardContent>
         </Card>
@@ -181,14 +180,13 @@ export default function HomePage() {
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              render={<Link href="/watchlist" />}
-              nativeButton={false}
+            <Link
+              href="/watchlist"
+              className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
             >
               <Bell aria-hidden />
               Saved &amp; alerts
-            </Button>
+            </Link>
           </CardContent>
         </Card>
       </Section>

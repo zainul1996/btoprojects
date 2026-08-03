@@ -158,6 +158,27 @@
   }
 }
 
+/* Compact controls remain tidy with a mouse, while touch users get a reliable
+   target without every desktop table and toolbar becoming oversized. */
+@media (pointer: coarse) {
+  [data-slot="button"],
+  [data-slot="select-trigger"],
+  [data-slot="select-item"] {
+    min-height: 2.75rem;
+  }
+
+  [data-slot="button"][data-size^="icon"] {
+    min-width: 2.75rem;
+  }
+}
+
+@media (max-width: 639px) {
+  .maplibregl-ctrl-group button {
+    width: 2.75rem !important;
+    height: 2.75rem !important;
+  }
+}
+
 /* Tabular + lining numerals — mandatory for prices, counts and stats */
 @utility tnum {
   font-variant-numeric: lining-nums tabular-nums;

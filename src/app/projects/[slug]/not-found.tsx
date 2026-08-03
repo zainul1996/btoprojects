@@ -2,7 +2,7 @@ import Link from "next/link";
 import { SearchX } from "lucide-react";
 
 import { EmptyState } from "@/components/empty-state";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function ProjectNotFound() {
   return (
@@ -12,9 +12,9 @@ export default function ProjectNotFound() {
         title="We don't track a project by that name"
         hint="It may not have launched yet, or the link has changed. Browse every project we follow."
         action={
-          <Button render={<Link href="/explore" />} nativeButton={false}>
+          <Link href="/explore" className={buttonVariants()}>
             Browse all projects
-          </Button>
+          </Link>
         }
       />
     </div>

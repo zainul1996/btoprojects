@@ -17,11 +17,12 @@ import { SbfAvailability } from "@/components/project/sbf-availability";
 import { SourceLog } from "@/components/project/source-log";
 import { Section } from "@/components/section";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WatchButton } from "@/components/watch-button";
 import { getProjectDetails } from "@/lib/project-data";
 import { createPageMetadata } from "@/lib/seo";
+import { cn } from "@/lib/utils";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -131,7 +132,7 @@ export default async function ProjectPage({ params }: Props) {
               ) : null}
             </div>
           </div>
-          <div className="flex flex-wrap items-center justify-end gap-2">
+          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
             <WatchButton
               targetType="project"
               targetId={project.slug}
@@ -139,17 +140,13 @@ export default async function ProjectPage({ params }: Props) {
               size="default"
             />
             <AddToCompareButton slug={project.slug} size="default" />
-            <Button
-              render={
-                <Link
-                  href={`/planner?prompt=${encodeURIComponent(plannerPrompt)}`}
-                />
-              }
-              nativeButton={false}
+            <Link
+              href={`/planner?prompt=${encodeURIComponent(plannerPrompt)}`}
+              className={cn(buttonVariants(), "w-full sm:w-auto")}
             >
               <Sparkles aria-hidden />
               Ask AI about this
-            </Button>
+            </Link>
           </div>
         </div>
 

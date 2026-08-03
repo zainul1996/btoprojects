@@ -307,7 +307,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const resultHeader = (
     <div
       className={cn(
-        "sticky top-14 z-30 space-y-2 border-b border-border bg-background/95 px-4 pt-3 pb-12 backdrop-blur-sm sm:py-3",
+        "sticky top-14 z-30 space-y-2 border-b border-border bg-background/95 px-4 pt-3 pb-16 backdrop-blur-sm sm:py-3",
         isMap && "lg:top-0",
       )}
     >

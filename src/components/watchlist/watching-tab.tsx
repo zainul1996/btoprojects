@@ -10,7 +10,7 @@ import { api } from "../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { townHref } from "@/components/project/utils";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDate } from "@/components/watchlist/format";
 
@@ -61,9 +61,9 @@ export function WatchingTab({ ready }: { ready: boolean }) {
         title="You're not following anything yet"
         hint="Follow a project or town for in-app alerts when official applicant, supply or deadline details change."
         action={
-          <Button render={<Link href="/explore" />} nativeButton={false}>
+          <Link href="/explore" className={buttonVariants()}>
             Find projects
-          </Button>
+          </Link>
         }
       />
     );
@@ -110,14 +110,12 @@ export function WatchingTab({ ready }: { ready: boolean }) {
                     {group.typeLabel}
                   </Badge>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      render={<Link href={viewHref(entry)} />}
-                      nativeButton={false}
+                    <Link
+                      href={viewHref(entry)}
+                      className={buttonVariants({ variant: "ghost", size: "sm" })}
                     >
                       View
-                    </Button>
+                    </Link>
                     <Button
                       variant="ghost"
                       size="sm"

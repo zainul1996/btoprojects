@@ -13,7 +13,7 @@ import { Price, formatSgd } from "@/components/price";
 import type { ProjectSummary } from "@/components/project-card";
 import { SourceBadge } from "@/components/source-badge";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { COMPARE_MAX, compareUrl, prettifySlug } from "@/lib/compare";
 import { cn } from "@/lib/utils";
 
@@ -326,9 +326,9 @@ export function CompareWorkspace({
         title="Nothing to compare yet"
         hint="Add projects with the Compare button on any project card."
         action={
-          <Button render={<Link href="/explore" />} nativeButton={false}>
+          <Link href="/explore" className={buttonVariants()}>
             Find projects
-          </Button>
+          </Link>
         }
       />
     );
@@ -376,9 +376,9 @@ export function CompareWorkspace({
           title="Nothing to compare yet"
           hint="Add projects with the Compare button on any project card."
           action={
-            <Button render={<Link href="/explore" />} nativeButton={false}>
+            <Link href="/explore" className={buttonVariants()}>
               Find projects
-            </Button>
+            </Link>
           }
         />
       ) : (
@@ -386,14 +386,12 @@ export function CompareWorkspace({
           {found.length === 1 && (
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-teal-subtle/50 px-4 py-3 text-sm text-teal-deeper">
               <p>Add one more option to see meaningful differences.</p>
-              <Button
-                variant="outline"
-                size="sm"
-                render={<Link href="/explore" />}
-                nativeButton={false}
+              <Link
+                href="/explore"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
               >
                 Find projects
-              </Button>
+              </Link>
             </div>
           )}
           {found.some((summary) => summary.project.saleType === "sbf") && (

@@ -5,13 +5,13 @@ import { useQuery } from "convex/react"
 import { Bell, Menu } from "lucide-react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 
 import { api } from "../../../convex/_generated/api"
 import { usePlannerChat } from "@/components/planner/planner-chat-provider"
-import { Button } from "@/components/ui/button"
+import { Button, buttonVariants } from "@/components/ui/button"
 import {
   Sheet,
-  SheetClose,
   SheetContent,
   SheetHeader,
   SheetTitle,
@@ -31,11 +31,12 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
-function Wordmark() {
+function Wordmark({ onClick }: { onClick?: () => void } = {}) {
   return (
     <Link
       href="/"
-      className="text-lg font-bold tracking-tight text-navy hover:text-navy"
+      onClick={onClick}
+      className="flex min-h-11 items-center text-lg font-bold tracking-tight text-navy hover:text-navy"
     >
       BTOProjects<span className="text-teal-deep">.sg</span>
     </Link>
@@ -84,26 +85,27 @@ function PlannerBusyDot() {
 function NotificationBell() {
   const unread = useUnreadAlerts()
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      render={<Link href="/watchlist?tab=alerts" />}
-      nativeButton={false}
+    <Link
+      href="/watchlist?tab=alerts"
       aria-label={
         unread !== undefined && unread > 0
           ? `Alerts, ${unread} unread`
           : "Alerts"
       }
-      className="relative"
+      className={cn(
+        buttonVariants({ variant: "ghost", size: "icon-sm" }),
+        "relative size-11 md:size-7",
+      )}
     >
       <Bell />
       <UnreadDot unread={unread} className="absolute -top-0.5 -right-0.5" />
-    </Button>
+    </Link>
   )
 }
 
 function SiteHeader() {
   const pathname = usePathname()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
@@ -148,7 +150,7 @@ function SiteHeader() {
             <UserButton />
           </Show>
 
-          <Sheet>
+          <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger
               render={
                 <Button
@@ -164,21 +166,18 @@ function SiteHeader() {
             <SheetContent side="right" className="w-72 gap-6">
               <SheetHeader>
                 <SheetTitle className="text-left">
-                  <Wordmark />
+                  <Wordmark onClick={() => setMobileMenuOpen(false)} />
                 </SheetTitle>
               </SheetHeader>
               <nav aria-label="Mobile" className="flex flex-col gap-1 px-4">
                 {NAV_ITEMS.map((item) => {
                   const active = isActive(pathname, item.href)
                   return (
-                    <SheetClose
+                    <Link
                       key={item.href}
-                      render={
-                        <Link
-                          href={item.href}
-                          aria-current={active ? "page" : undefined}
-                        />
-                      }
+                      href={item.href}
+                      aria-current={active ? "page" : undefined}
+                      onClick={() => setMobileMenuOpen(false)}
                       className={cn(
                         "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                         active
@@ -188,7 +187,7 @@ function SiteHeader() {
                     >
                       {item.label}
                       {item.href === "/planner" && <PlannerBusyDot />}
-                    </SheetClose>
+                    </Link>
                   )
                 })}
               </nav>

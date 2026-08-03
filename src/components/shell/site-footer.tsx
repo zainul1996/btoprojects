@@ -47,16 +47,16 @@ function SiteFooter() {
           aria-label="Footer"
           className="flex flex-wrap gap-x-5 gap-y-2 text-sm"
         >
-          <Link href="/explore" className="hover:text-teal-deep hover:underline">
+          <Link href="/explore" className="inline-flex min-h-11 items-center hover:text-teal-deep hover:underline sm:min-h-0">
             Explore projects
           </Link>
-          <Link href="/upcoming" className="hover:text-teal-deep hover:underline">
+          <Link href="/upcoming" className="inline-flex min-h-11 items-center hover:text-teal-deep hover:underline sm:min-h-0">
             Launch calendar
           </Link>
-          <Link href="/compare" className="hover:text-teal-deep hover:underline">
+          <Link href="/compare" className="inline-flex min-h-11 items-center hover:text-teal-deep hover:underline sm:min-h-0">
             Compare
           </Link>
-          <Link href="/methodology" className="hover:text-teal-deep hover:underline">
+          <Link href="/methodology" className="inline-flex min-h-11 items-center hover:text-teal-deep hover:underline sm:min-h-0">
             Data methodology
           </Link>
         </nav>

@@ -165,7 +165,7 @@ export default async function TownPage({ params }: Props) {
             targetId={resolvedName}
             label={resolvedName}
             size="default"
-            className="shrink-0"
+            className="shrink-0 border border-border bg-background px-3 hover:bg-muted"
           />
         </div>
 

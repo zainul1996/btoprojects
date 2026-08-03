@@ -19,20 +19,30 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const skipLink = (
+    <a
+      href="#main-content"
+      className="sr-only fixed top-3 left-3 z-50 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground shadow-lg focus:not-sr-only"
+    >
+      Skip to main content
+    </a>
+  );
 
   if (pathname === "/planner") {
     return (
       <div className="flex h-dvh flex-col overflow-hidden">
+        {skipLink}
         {header}
-        <main className="min-h-0 flex-1">{children}</main>
+        <main id="main-content" className="min-h-0 flex-1">{children}</main>
       </div>
     );
   }
 
   return (
     <>
+      {skipLink}
       {header}
-      <main className="min-h-svh">{children}</main>
+      <main id="main-content" className="min-h-0 flex-1">{children}</main>
       {footer}
     </>
   );

@@ -222,7 +222,7 @@ export default async function UpcomingPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 md:px-6">
       <PageHeader
-        title="Launch Calendar"
+        title="Launch calendar"
         lede="Open, announced and previous HDB BTO and SBF exercises, with expected dates kept separate from official information."
       />
 

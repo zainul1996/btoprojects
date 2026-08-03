@@ -19,7 +19,7 @@ import {
 import { Section } from "@/components/section";
 import { Stat } from "@/components/stat";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
   const { exercise, projectCount } = row;
   return createPageMetadata({
-    title: `${exercise.label} BTO projects`,
+    title: `${exercise.label} projects`,
     description: `Explore ${projectCount} project${projectCount === 1 ? "" : "s"} in the ${exercise.label} launch, with available flat supply, prices, timing, location context and clearly labelled sources.`,
     path: `/bto/${exercise.key}`,
   });
@@ -70,9 +70,9 @@ export default async function ExercisePage({ params }: Props) {
           title={`No exercise called "${key}"`}
           hint="BTO exercises are keyed by year and month, for example /bto/2026-06. Browse everything we track."
           action={
-            <Button render={<Link href="/explore" />} nativeButton={false}>
+            <Link href="/explore" className={buttonVariants()}>
               Browse all projects
-            </Button>
+            </Link>
           }
         />
       </div>
@@ -100,7 +100,7 @@ export default async function ExercisePage({ params }: Props) {
     "@type": "CollectionPage",
     "@id": `${absoluteUrl(path)}#page`,
     url: absoluteUrl(path),
-    name: `${exercise.label} BTO projects`,
+    name: `${exercise.label} projects`,
     description: `${projects.length} BTO project${projects.length === 1 ? "" : "s"} tracked in this HDB sales exercise.`,
     numberOfItems: projects.length,
     inLanguage: "en-SG",

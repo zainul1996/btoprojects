@@ -17,7 +17,7 @@ import {
 import { Section } from "@/components/section";
 import { Stat } from "@/components/stat";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
@@ -155,9 +155,9 @@ export default async function SbfExercisePage({ params }: Props) {
             title="The flat list is revealed on launch day"
             hint="HDB publishes the towns, flat types and prices when the exercise opens. We carry them here the same day."
             action={
-              <Button render={<Link href="/upcoming" />} nativeButton={false}>
+              <Link href="/upcoming" className={buttonVariants()}>
                 See upcoming launches
-              </Button>
+              </Link>
             }
           />
         ) : (

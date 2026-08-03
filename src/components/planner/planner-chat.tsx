@@ -18,6 +18,7 @@ import { SourceBadge } from "@/components/source-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { WatchButton } from "@/components/watch-button";
 import {
@@ -332,7 +333,19 @@ export function PlannerChat({
                 </CardContent>
               </Card>
             ) : null}
-            {!hydrated ? null : messages.length === 0 ? (
+            {!hydrated ? (
+              <div aria-busy="true" aria-label="Loading planner">
+                <PageHeader
+                  title="The planner"
+                  lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
+                />
+                <div className="flex flex-col gap-2" aria-hidden>
+                  <Skeleton className="h-12 w-full max-w-2xl rounded-2xl" />
+                  <Skeleton className="h-10 w-64 rounded-2xl" />
+                  <Skeleton className="h-10 w-72 rounded-2xl" />
+                </div>
+              </div>
+            ) : messages.length === 0 ? (
               <div>
                 <PageHeader
                   title="The planner"
@@ -359,7 +372,7 @@ export function PlannerChat({
                       key={prompt}
                       type="button"
                       onClick={() => fillExample(prompt)}
-                      className="w-fit max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40"
+                      className="min-h-11 w-fit max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40"
                     >
                       {prompt}
                     </button>
@@ -517,7 +530,7 @@ export function PlannerChat({
                   <Button
                     variant="link"
                     size="sm"
-                    className="h-auto px-0 py-2 text-xs md:py-0"
+                    className="h-auto min-h-11 px-0 py-2 text-xs md:min-h-0 md:py-0"
                   >
                     Sign in
                   </Button>
@@ -530,7 +543,7 @@ export function PlannerChat({
                 variant="link"
                 size="sm"
                 onClick={newChat}
-                className="ml-auto h-auto px-0 py-2 text-xs text-muted-foreground hover:text-ink md:py-0"
+                className="ml-auto h-auto min-h-11 px-0 py-2 text-xs text-muted-foreground hover:text-ink md:min-h-0 md:py-0"
               >
                 New chat
               </Button>
@@ -622,7 +635,7 @@ function AssistantTurn({
 // rounded-2xl (not full): prompts wrap to several lines on phones, and a
 // stadium radius on a tall block reads as a sausage, not a chip.
 const SUGGESTION_CHIP_CLASS =
-  "max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40";
+  "min-h-11 max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40";
 
 function SuggestionChip({
   suggestion,

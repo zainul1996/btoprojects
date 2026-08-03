@@ -12,7 +12,7 @@ import {
 import { ArrowLeftRight, X } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   COMPARE_MAX,
   COMPARE_STORAGE_KEY,
@@ -140,14 +140,14 @@ function CompareTray() {
           {slugs.map((slug) => (
             <span
               key={slug}
-              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-ink"
+              className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted py-1 pr-1 pl-2.5 text-xs font-medium text-ink"
             >
               {prettifySlug(slug)}
               <button
                 type="button"
                 onClick={() => remove(slug)}
                 aria-label={`Remove ${prettifySlug(slug)} from comparison`}
-                className="rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-border hover:text-ink"
+                className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-border hover:text-ink"
               >
                 <X className="size-3" aria-hidden />
               </button>
@@ -157,22 +157,26 @@ function CompareTray() {
         <button
           type="button"
           onClick={clear}
-          className="shrink-0 text-xs font-medium text-muted-foreground transition-colors hover:text-ink"
+          className="flex min-h-11 shrink-0 items-center px-1 text-xs font-medium text-muted-foreground transition-colors hover:text-ink sm:min-h-0 sm:px-0"
         >
           Clear
         </button>
-        <Button
-          size="sm"
-          render={<Link href={compareUrl(slugs)} />}
-          nativeButton={false}
-          className="shrink-0 rounded-full"
-          disabled={slugs.length < 2}
-          onClick={() => {
-            if (slugs.length < 2) toast("Add at least 2 projects to compare");
-          }}
-        >
-          Compare ({slugs.length})
-        </Button>
+        {slugs.length >= 2 ? (
+          <Link
+            href={compareUrl(slugs)}
+            className={`${buttonVariants({ size: "sm" })} min-h-11 shrink-0 rounded-full sm:min-h-7`}
+          >
+            Compare ({slugs.length})
+          </Link>
+        ) : (
+          <button
+            type="button"
+            className={`${buttonVariants({ size: "sm" })} min-h-11 shrink-0 rounded-full sm:min-h-7`}
+            onClick={() => toast("Add at least 2 projects to compare")}
+          >
+            Compare ({slugs.length})
+          </button>
+        )}
       </div>
     </div>
   );
