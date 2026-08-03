@@ -311,7 +311,16 @@ export function PlannerChat() {
         )}
       </div>
 
-      <div className="border-t border-border bg-paper/95 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+      <div
+        className={cn(
+          "border-t border-border bg-paper/95 pt-3 backdrop-blur-sm",
+          // Keyboard open: the home-indicator inset is under the keyboard, so
+          // a tight padding lets the field sit lower, just off the keys.
+          keyboardHeight === null
+            ? "pb-[max(1rem,env(safe-area-inset-bottom))]"
+            : "pb-2",
+        )}
+      >
         <div className="mx-auto w-full max-w-3xl px-4 md:px-6">
           <div className="flex items-end gap-2">
             <Textarea
