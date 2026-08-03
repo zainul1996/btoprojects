@@ -23,6 +23,15 @@ export type ProjectMapItem = {
    * exact site at launch.
    */
   lifecycleStatus?: string;
+  /**
+   * "sbf" rows are town pools sold by town and flat type, not single sites.
+   * They render as a teal dashed-ring area marker at the town centroid,
+   * distinct from the navy announced halo.
+   */
+  saleType?: "bto" | "sbf";
+  totalUnits?: number;
+  /** Short exercise label (e.g. "Feb 2026"), shown for SBF pools. */
+  exerciseLabel?: string | null;
   fromPrice?: number | null;
   townName?: string;
   /** Extra meta line content, appended after town · price when set. */
@@ -93,6 +102,7 @@ export function ProjectMap({
 
   function buildPopupContent(p: ProjectMapItem): HTMLElement {
     const root = document.createElement("div");
+    const isSbf = p.saleType === "sbf";
 
     const name = document.createElement("p");
     name.className = "bto-map-popup__name";
@@ -100,8 +110,11 @@ export function ProjectMap({
     root.appendChild(name);
 
     const metaParts: string[] = [];
+    if (isSbf) metaParts.push("Balance flats (SBF)");
+    if (isSbf && p.exerciseLabel) metaParts.push(p.exerciseLabel);
     if (p.townName) metaParts.push(p.townName);
     if (p.fromPrice != null) metaParts.push(`From ${formatSgd(p.fromPrice)}`);
+    if (isSbf && p.totalUnits) metaParts.push(`${p.totalUnits} units`);
     if (p.extra) metaParts.push(p.extra);
     if (metaParts.length > 0) {
       const meta = document.createElement("p");
@@ -113,7 +126,12 @@ export function ProjectMap({
     if (p.lifecycleStatus === "announced") {
       const note = document.createElement("p");
       note.className = "bto-map-popup__note";
-      note.textContent = "Location approximate — exact site at launch";
+      note.textContent = "Location approximate; exact site at launch";
+      root.appendChild(note);
+    } else if (isSbf) {
+      const note = document.createElement("p");
+      note.className = "bto-map-popup__note";
+      note.textContent = "Marker at the town centre; flats are across the town";
       root.appendChild(note);
     }
 
@@ -144,19 +162,23 @@ export function ProjectMap({
 
   function createMarker(p: ProjectMapItem): maplibregl.Marker {
     const isAnnounced = p.lifecycleStatus === "announced";
+    const isSbf = p.saleType === "sbf";
     const el = document.createElement("button");
     el.type = "button";
     el.className = "bto-map-marker";
     el.dataset.focused = "false";
-    if (isAnnounced) el.dataset.variant = "area";
+    if (isSbf) el.dataset.variant = "area-sbf";
+    else if (isAnnounced) el.dataset.variant = "area";
     el.setAttribute(
       "aria-label",
-      isAnnounced
-        ? `${p.name} (announced, approximate location) — show on map`
-        : `${p.name} — show on map`,
+      isSbf
+        ? `${p.name} (balance flats, town-centre location) — show on map`
+        : isAnnounced
+          ? `${p.name} (announced, approximate location) — show on map`
+          : `${p.name} — show on map`,
     );
 
-    if (isAnnounced) {
+    if (isAnnounced || isSbf) {
       const halo = document.createElement("span");
       halo.className = "bto-map-marker__halo";
       halo.setAttribute("aria-hidden", "true");
@@ -286,7 +308,7 @@ export function ProjectMap({
       ref={containerRef}
       className={cn("h-full w-full bg-muted", className)}
       role="application"
-      aria-label="Map of BTO projects in Singapore"
+      aria-label="Map of BTO and SBF projects in Singapore"
     />
   );
 }

@@ -9,16 +9,31 @@ import { classificationValidator, exerciseStatusValidator } from "../schema";
 import { emptySummary, INGEST_JOBS, type IngestRunSummary } from "./types";
 
 /**
- * HDB BTO launch ingestion (Track W1).
+ * HDB BTO + SBF launch ingestion (Track W1; SBF added Aug 2026).
  *
  * PRIMARY SOURCE (official, machine-readable, no auth):
  *   HDB Flat Portal static application-rate files
  *     https://services-homes.hdb.gov.sg/sales/files/apprates/BTO{YYYYMM}.json
+ *     https://services-homes.hdb.gov.sg/sales/files/apprates/SBF{YYYYMM}.json
  *   backing the public "Flat Supply & Applications Received" pages
  *     https://services-homes.hdb.gov.sg/sales/application-rate/BTO/{YYYYMM}
  *   robots.txt for services-homes.hdb.gov.sg is `User-agent: * Allow: /`
  *   (verified 3 Aug 2026). www.hdb.gov.sg robots also allows content paths but
  *   its WAF blocks non-browser agents — so we only touch services-homes.
+ *
+ * SBF NOTES:
+ *   - Annual cadence since 2024: one SBF each February alongside the Feb BTO
+ *     (Feb 2026: SBF202602.json = 4,320 units across 24 towns, matching the
+ *     HDB press release). Composition is only revealed on launch day, so the
+ *     "02" probe + live-quarter signal are the discovery mechanism.
+ *   - SBF rows are town-level pools: project_name == estate_name and
+ *     project_classification is usually "NA" (mapped to our "Unclassified";
+ *     real Standard/Plus/Prime rows do appear for returned classified flats).
+ *   - Flat types outside the BTO union (Community Care Apartment,
+ *     "5-Room/3Gen", "5-Room/Executive") are recorded as verbatim facts,
+ *     same convention as BTO combined rows.
+ *   - Applicant counts per row are stored as facts (flatType.X.applicants) —
+ *     SBF demand signal; BTO rows get the same treatment.
  *
  * SECONDARY SIGNAL (live-window detection):
  *   POST {LAUNCH_API}/get-launch-availability — the SPA's own endpoint; returns
@@ -59,10 +74,24 @@ const USER_AGENT =
 /** Regular BTO months are Feb/Jun/Oct; "07" hedges mid-year slips (e.g. 2025). */
 const BTO_CANDIDATE_MONTHS = ["02", "06", "07", "10"] as const;
 
-/** Polite serial fetching: ~2.5 req/s max, ~10 requests per daily run. */
+/** SBF is annual since 2024, always alongside the February BTO. */
+const SBF_CANDIDATE_MONTHS = ["02"] as const;
+
+/** Polite serial fetching: ~2.5 req/s max, ~12 requests per daily run. */
 const REQUEST_GAP_MS = 400;
 
 const SGT_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+type SaleKind = "bto" | "sbf";
+
+/**
+ * HDB's estate_name quirks → our towns table. "Kallang Whampoa" arrives
+ * without the slash; "Jurong East/ West" is HDB's own lumping of two towns
+ * and is kept verbatim (a matching towns row exists for it).
+ */
+const TOWN_ALIASES: Record<string, string> = {
+  "kallang whampoa": "Kallang/Whampoa",
+};
 
 // ---------------------------------------------------------------------------
 // Source payload shapes (all fields optional — parser must degrade, not throw)
@@ -103,12 +132,14 @@ interface AppRatesFile {
 // Parsed model
 // ---------------------------------------------------------------------------
 
-type Classification = "Standard" | "Plus" | "Prime";
+type Classification = "Standard" | "Plus" | "Prime" | "Unclassified";
 
 interface SoleFlatTypeUnits {
   /** Our union label ("4-room") when mappable, else the verbatim source label. */
   flatType: string;
   supply: number;
+  /** total_applicant_no for the row; null when the source omits it. */
+  applicants: number | null;
   /** True for combined rows like "5-Room/3Gen" that our union cannot express. */
   combined: boolean;
 }
@@ -117,6 +148,13 @@ interface DiscoveredProject {
   name: string;
   town: string;
   classification: Classification | null;
+  /**
+   * SBF only: every classification label seen for this pool across rows.
+   * A town pool is the SAME offering split by classification (NA + Prime…),
+   * so the row's supply is the pool's supply — unlike BTO shared rows where
+   * the split between different projects is unpublished.
+   */
+  classSet: Set<string>;
   /** Rows where this project is the ONLY project — supply is attributable. */
   soleUnits: SoleFlatTypeUnits[];
   /** Rows shared with other projects — supply split unpublished, skipped. */
@@ -126,9 +164,10 @@ interface DiscoveredProject {
 }
 
 interface DiscoveredExercise {
+  kind: SaleKind;
   quarter: string; // "202606"
-  key: string; // "2026-06" — matches exercises.key
-  label: string; // "June 2026 BTO"
+  key: string; // "2026-06" for BTO, "2026-02-sbf" for SBF
+  label: string; // "June 2026 BTO" / "February 2026 SBF"
   applicationStart: string | null;
   applicationEnd: string | null;
   isFinalUpdate: boolean;
@@ -152,12 +191,19 @@ function slugify(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function toClassification(raw: string | undefined): Classification | null {
+function toClassification(
+  raw: string | undefined,
+  kind: SaleKind,
+): Classification | "Unclassified" | null {
   if (!raw) return null;
   const n = raw.trim().toLowerCase();
   if (n === "standard") return "Standard";
   if (n === "plus") return "Plus";
   if (n === "prime") return "Prime";
+  // SBF town pools are published as "NA" — mixed or pre-classification flats.
+  if (kind === "sbf" && (n === "na" || n === "n/a" || n === "unclassified")) {
+    return "Unclassified";
+  }
   return null;
 }
 
@@ -195,14 +241,15 @@ const MONTH_NAMES = [
   "December",
 ] as const;
 
-function exerciseKeyFor(quarter: string): string {
-  return `${quarter.slice(0, 4)}-${quarter.slice(4, 6)}`;
+function exerciseKeyFor(kind: SaleKind, quarter: string): string {
+  const base = `${quarter.slice(0, 4)}-${quarter.slice(4, 6)}`;
+  return kind === "sbf" ? `${base}-sbf` : base;
 }
 
-function exerciseLabelFor(quarter: string): string {
+function exerciseLabelFor(kind: SaleKind, quarter: string): string {
   const monthIndex = Number(quarter.slice(4, 6)) - 1;
   const month = MONTH_NAMES[monthIndex] ?? quarter.slice(4, 6);
-  return `${month} ${quarter.slice(0, 4)} BTO`;
+  return `${month} ${quarter.slice(0, 4)} ${kind.toUpperCase()}`;
 }
 
 /** Current date parts in Singapore time (HDB quarters are SGT-based). */
@@ -215,22 +262,38 @@ function sgtNow(): { year: number; month: number; isoDate: string } {
 }
 
 /**
- * Quarters to probe: regular BTO months for this and last SGT year, next
- * February once we are in Nov/Dec, plus any live quarter reported by the
- * launch API. Newest first so discovered[0] is the freshest source.
+ * Files to probe: regular BTO months + annual February SBF for this and last
+ * SGT year, next February once we are in Nov/Dec, plus both kinds for any
+ * live quarter reported by the launch API. Newest first so discovered[0] is
+ * the freshest source.
  */
-function candidateQuarters(liveQuarter: string | null): string[] {
+function candidateProbes(
+  liveQuarter: string | null,
+): { kind: SaleKind; quarter: string }[] {
   const { year, month } = sgtNow();
-  const quarters = new Set<string>();
+  const probes = new Map<string, { kind: SaleKind; quarter: string }>();
+  const add = (kind: SaleKind, quarter: string) =>
+    probes.set(`${kind}${quarter}`, { kind, quarter });
+
   for (const y of [year, year - 1]) {
-    for (const m of BTO_CANDIDATE_MONTHS) quarters.add(`${y}${m}`);
+    for (const m of BTO_CANDIDATE_MONTHS) add("bto", `${y}${m}`);
+    for (const m of SBF_CANDIDATE_MONTHS) add("sbf", `${y}${m}`);
   }
-  if (month >= 11) quarters.add(`${year + 1}02`);
-  if (liveQuarter && /^\d{6}$/.test(liveQuarter)) quarters.add(liveQuarter);
-  return [...quarters].sort((a, b) => (a < b ? 1 : -1));
+  if (month >= 11) {
+    add("bto", `${year + 1}02`);
+    add("sbf", `${year + 1}02`);
+  }
+  if (liveQuarter && /^\d{6}$/.test(liveQuarter)) {
+    add("bto", liveQuarter);
+    add("sbf", liveQuarter);
+  }
+  return [...probes.values()].sort((a, b) =>
+    a.quarter < b.quarter ? 1 : a.quarter > b.quarter ? -1 : a.kind < b.kind ? -1 : 1,
+  );
 }
 
 function parseAppRates(
+  kind: SaleKind,
   quarter: string,
   sourceUrl: string,
   json: AppRatesFile,
@@ -252,6 +315,46 @@ function parseAppRates(
       const rawType = row.flat_type?.trim() ?? "";
       const mappedType = rawType ? mapFlatType(rawType) : null;
 
+      if (kind === "sbf") {
+        // One pool per estate: SBF is sold by town x flat type, so every
+        // row's flat_supply is the pool's supply — whatever the entries are
+        // named (the same pool may appear several times per row with
+        // different classifications, or as block-level names). Entries only
+        // feed the classification set; unlike BTO shared rows there is no
+        // unpublished split to guard against.
+        const key = `${normalizeName(town)}::${normalizeName(town)}`;
+        let project = projectsByKey.get(key);
+        if (!project) {
+          project = {
+            name: town,
+            town,
+            classification: null, // finalized from classSet below
+            classSet: new Set(),
+            soleUnits: [],
+            hasSharedRows: false,
+            totalUnits: null,
+          };
+          projectsByKey.set(key, project);
+        }
+        for (const entry of listed) {
+          const cls = toClassification(entry.project_classification, kind);
+          project.classSet.add(cls ?? "Unclassified");
+        }
+        if (supply !== null && rawType) {
+          project.soleUnits.push({
+            flatType: mappedType ?? rawType,
+            supply,
+            applicants:
+              typeof row.total_applicant_no === "number" &&
+              Number.isFinite(row.total_applicant_no)
+                ? row.total_applicant_no
+                : null,
+            combined: mappedType === null,
+          });
+        }
+        continue;
+      }
+
       for (const entry of listed) {
         const name = entry.project_name?.trim();
         if (!name) continue;
@@ -261,7 +364,8 @@ function parseAppRates(
           project = {
             name,
             town,
-            classification: toClassification(entry.project_classification),
+            classification: toClassification(entry.project_classification, kind),
+            classSet: new Set(),
             soleUnits: [],
             hasSharedRows: false,
             totalUnits: null,
@@ -272,6 +376,11 @@ function parseAppRates(
           project.soleUnits.push({
             flatType: mappedType ?? rawType,
             supply,
+            applicants:
+              typeof row.total_applicant_no === "number" &&
+              Number.isFinite(row.total_applicant_no)
+                ? row.total_applicant_no
+                : null,
             combined: mappedType === null,
           });
         } else if (listed.length > 1) {
@@ -283,6 +392,15 @@ function parseAppRates(
 
   const projects = [...projectsByKey.values()];
   for (const project of projects) {
+    if (kind === "sbf") {
+      // One real classification only when the pool is uniform; anything
+      // mixed (or NA anywhere) stays honestly "Unclassified".
+      const real = [...project.classSet].filter((c) => c !== "Unclassified");
+      project.classification =
+        project.classSet.size === 1 && real.length === 1
+          ? (real[0] as Classification)
+          : "Unclassified";
+    }
     if (!project.hasSharedRows && project.soleUnits.length > 0) {
       project.totalUnits = project.soleUnits.reduce(
         (sum, u) => sum + u.supply,
@@ -292,9 +410,10 @@ function parseAppRates(
   }
 
   return {
+    kind,
     quarter,
-    key: exerciseKeyFor(quarter),
-    label: exerciseLabelFor(quarter),
+    key: exerciseKeyFor(kind, quarter),
+    label: exerciseLabelFor(kind, quarter),
     applicationStart: json.launch_start_date ?? null,
     applicationEnd: json.launch_end_date ?? null,
     isFinalUpdate: json.is_final_update === true,
@@ -318,9 +437,10 @@ function sleep(ms: number): Promise<void> {
  * content-type is the same SPA fallback reached some other way; also skip.
  */
 async function fetchAppRatesFile(
+  kind: SaleKind,
   quarter: string,
-): Promise<{ quarter: string; url: string; json: AppRatesFile } | null> {
-  const url = `${APPRATES_BASE}/BTO${quarter}.json`;
+): Promise<{ kind: SaleKind; quarter: string; url: string; json: AppRatesFile } | null> {
+  const url = `${APPRATES_BASE}/${kind.toUpperCase()}${quarter}.json`;
   const res = await fetch(url, {
     headers: { "User-Agent": USER_AGENT, Accept: "application/json" },
     redirect: "manual",
@@ -330,7 +450,7 @@ async function fetchAppRatesFile(
   if (!contentType.includes("application/json")) return null;
   const json = (await res.json()) as AppRatesFile;
   if (!Array.isArray(json.estate_list)) return null;
-  return { quarter, url, json };
+  return { kind, quarter, url, json };
 }
 
 /**
@@ -380,6 +500,8 @@ const listIngestContextReturns = v.object({
       _id: v.id("towns"),
       name: v.string(),
       region: v.string(),
+      lat: v.number(),
+      lng: v.number(),
     }),
   ),
   projects: v.array(
@@ -415,6 +537,8 @@ export const listIngestContext = internalQuery({
         _id: row._id,
         name: row.name,
         region: row.region,
+        lat: row.lat,
+        lng: row.lng,
       })),
       projects: projectRows.map((row) => ({
         _id: row._id,
@@ -429,6 +553,7 @@ export const listIngestContext = internalQuery({
 const upsertExerciseArgs = {
   key: v.string(),
   label: v.string(),
+  type: v.union(v.literal("bto"), v.literal("sbf")),
   status: exerciseStatusValidator,
   applicationEnd: v.optional(v.string()),
 };
@@ -468,7 +593,7 @@ export const upsertExercise = internalMutation({
     const id = await ctx.db.insert("exercises", {
       key: args.key,
       label: args.label,
-      type: "bto",
+      type: args.type,
       status: args.status,
       ...(args.applicationEnd !== undefined
         ? { applicationEnd: args.applicationEnd }
@@ -550,6 +675,128 @@ const createProjectShellReturns = v.object({
 });
 
 /**
+ * SBF town-pool shell: one row per SBF exercise x town. Coordinates are the
+ * town centroid (pools span the town, so area markers — never pins); wait is
+ * 0 because many balance flats are completed or near completion; completion
+ * stays "" because it varies per flat. Prices stay 0 until press-table
+ * enrichment — the apprates source carries supply and demand, never prices.
+ */
+export const createSbfShell = internalMutation({
+  args: {
+    slug: v.string(),
+    name: v.string(),
+    townId: v.id("towns"),
+    exerciseId: v.id("exercises"),
+    region: v.string(),
+    classification: classificationValidator,
+    description: v.string(),
+    lat: v.number(),
+    lng: v.number(),
+    totalUnits: v.number(),
+    applicationDeadline: v.optional(v.string()),
+    notes: v.optional(v.string()),
+  },
+  returns: createProjectShellReturns,
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("projects")
+      .withIndex("by_slug", (q) => q.eq("slug", args.slug))
+      .unique();
+    if (existing) {
+      // Repair path: an earlier run may have written a husk (totalUnits 0)
+      // before a parser fix — patch supply/classification forward.
+      const patch: { totalUnits?: number; classification?: typeof args.classification } = {};
+      if (existing.totalUnits !== args.totalUnits) patch.totalUnits = args.totalUnits;
+      if (existing.classification !== args.classification) {
+        patch.classification = args.classification;
+      }
+      if (patch.totalUnits !== undefined || patch.classification !== undefined) {
+        await ctx.db.patch("projects", existing._id, {
+          ...patch,
+          updatedAt: Date.now(),
+        });
+      }
+      return { id: existing._id, created: false };
+    }
+    const id = await ctx.db.insert("projects", {
+      slug: args.slug,
+      name: args.name,
+      townId: args.townId,
+      exerciseId: args.exerciseId,
+      region: args.region,
+      classification: args.classification,
+      lifecycleStatus: "launched",
+      saleType: "sbf",
+      lat: args.lat,
+      lng: args.lng,
+      description: args.description,
+      totalUnits: args.totalUnits,
+      estimatedWaitMonths: 0,
+      estimatedCompletion: "",
+      nearestMrt: [],
+      mrtWalkingMinutes: 0,
+      ...(args.applicationDeadline !== undefined
+        ? { applicationDeadline: args.applicationDeadline }
+        : {}),
+      ...(args.notes !== undefined ? { notes: args.notes } : {}),
+      updatedAt: Date.now(),
+    });
+    return { id, created: true };
+  },
+});
+
+/**
+ * Flat-type supply rows for an SBF town pool. Only union-mappable types land
+ * here ("Community Care Apartment" etc. stay as verbatim facts). Prices are
+ * 0 = TBC until launch-price enrichment; units patch forward when HDB
+ * revises the file mid-window.
+ */
+export const upsertSbfFlatTypes = internalMutation({
+  args: {
+    projectId: v.id("projects"),
+    rows: v.array(
+      v.object({
+        type: v.union(
+          v.literal("2-room Flexi"),
+          v.literal("3-room"),
+          v.literal("4-room"),
+          v.literal("5-room"),
+          v.literal("3Gen"),
+        ),
+        units: v.number(),
+      }),
+    ),
+  },
+  returns: v.object({ inserted: v.number(), patched: v.number() }),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("flatTypes")
+      .withIndex("by_project", (q) => q.eq("projectId", args.projectId))
+      .collect();
+    const byType = new Map(existing.map((row) => [row.type, row]));
+    let inserted = 0;
+    let patched = 0;
+    for (const row of args.rows) {
+      const current = byType.get(row.type);
+      if (!current) {
+        await ctx.db.insert("flatTypes", {
+          projectId: args.projectId,
+          type: row.type,
+          units: row.units,
+          minPrice: 0,
+          maxPrice: 0,
+        });
+        inserted++;
+      } else if (current.units !== row.units) {
+        await ctx.db.patch("flatTypes", current._id, { units: row.units });
+        patched++;
+      }
+    }
+    return { inserted, patched };
+  },
+});
+
+/**
  * Create a minimal shell for a project the source clearly names but our DB
  * lacks. Required fields the source does not carry are explicit placeholders
  * (0 / "" / []) called out in `notes` — enrichment pipelines (geocode, price
@@ -572,6 +819,7 @@ export const createProjectShell = internalMutation({
       region: args.region,
       classification: args.classification,
       lifecycleStatus: "launched",
+      saleType: "bto",
       lat: 0,
       lng: 0,
       description: args.description,
@@ -600,6 +848,16 @@ interface FactToApply {
   note?: string;
 }
 
+/** "4,320"-style unit count for alert copy; falls back honestly when unknown. */
+function totalUnitsLine(project: DiscoveredProject): string {
+  const total =
+    project.totalUnits ??
+    (project.soleUnits.length > 0
+      ? project.soleUnits.reduce((sum, u) => sum + u.supply, 0)
+      : null);
+  return total === null ? "An unpublished number of" : total.toLocaleString("en-SG");
+}
+
 export const run = internalAction({
   args: {},
   returns: v.object({
@@ -622,21 +880,23 @@ export const run = internalAction({
     });
 
     try {
-      // 1. Discover which quarters to read: live API signal + fixed probes.
+      // 1. Discover which files to read: live API signal + fixed probes.
       const liveQuarter = await detectLiveQuarter();
-      const quarters = candidateQuarters(liveQuarter);
+      const probes = candidateProbes(liveQuarter);
 
       // 2. Fetch + parse, serially and politely. Missing quarters are normal.
       const discovered: DiscoveredExercise[] = [];
-      for (const [index, quarter] of quarters.entries()) {
+      for (const [index, probe] of probes.entries()) {
         if (index > 0) await sleep(REQUEST_GAP_MS);
-        const file = await fetchAppRatesFile(quarter);
+        const file = await fetchAppRatesFile(probe.kind, probe.quarter);
         if (!file) continue;
         try {
-          discovered.push(parseAppRates(file.quarter, file.url, file.json));
+          discovered.push(
+            parseAppRates(file.kind, file.quarter, file.url, file.json),
+          );
         } catch (error) {
           summary.errors.push(
-            `parse BTO${quarter}: ${error instanceof Error ? error.message : String(error)}`,
+            `parse ${probe.kind.toUpperCase()}${probe.quarter}: ${error instanceof Error ? error.message : String(error)}`,
           );
         }
       }
@@ -694,6 +954,7 @@ export const run = internalAction({
         const exerciseResult = await ctx.runMutation(internal.ingest.hdb.upsertExercise, {
           key: exercise.key,
           label: exercise.label,
+          type: exercise.kind,
           status,
           ...(exercise.applicationEnd !== null
             ? { applicationEnd: exercise.applicationEnd }
@@ -702,11 +963,133 @@ export const run = internalAction({
         if (exerciseResult.created) summary.rowsWritten++;
 
         for (const project of exercise.projects) {
-          const town = townsByName.get(normalizeName(project.town));
+          const canonicalTown = TOWN_ALIASES[normalizeName(project.town)] ?? project.town;
+          const town = townsByName.get(normalizeName(canonicalTown));
           if (!town) {
             summary.errors.push(
               `unknown town "${project.town}" for project "${project.name}" (${exercise.key}) — skipped`,
             );
+            continue;
+          }
+
+          // SBF town-pool path: one project row per exercise x town, named
+          // for the pool, keyed by slug so re-runs are idempotent. The shell
+          // mutation is ALWAYS invoked: beyond insert it repairs totalUnits /
+          // classification forward when the parser improves (husks from
+          // earlier runs must not linger).
+          if (exercise.kind === "sbf") {
+            const slug = `sbf-${exercise.key.replace("-sbf", "")}-${slugify(town.name)}`;
+            if (!project.classification) {
+              summary.errors.push(
+                `new SBF pool "${project.name}" (${project.town}, ${exercise.key}) has no usable classification — shell skipped`,
+              );
+              continue;
+            }
+            const totalUnits =
+              project.totalUnits ??
+              project.soleUnits.reduce((sum, u) => sum + u.supply, 0);
+            const shell = await ctx.runMutation(internal.ingest.hdb.createSbfShell, {
+              slug,
+              name: `${town.name} balance flats`,
+              townId: town._id,
+              exerciseId: exerciseResult.id,
+              region: town.region,
+              classification: project.classification,
+              description:
+                `Balance flats in ${town.name} offered in the ${exercise.label} exercise. ` +
+                `SBF flats are sold by town and flat type, not by project; individual flats vary in block, ` +
+                `remaining lease, price and completion date, and many are completed or nearing completion.`,
+              lat: town.lat,
+              lng: town.lng,
+              totalUnits,
+              ...(exercise.applicationEnd !== null
+                ? { applicationDeadline: exercise.applicationEnd }
+                : {}),
+              notes:
+                `Auto-created SBF town pool from HDB Flat Portal application-rate data (SBF${exercise.quarter}). ` +
+                `lat/lng are the town centroid (pool spans the town). Prices are TBC — ` +
+                `this source publishes supply and application counts, never prices.`,
+            });
+            const projectId = shell.id;
+            if (shell.created) {
+              summary.rowsWritten++;
+              // Town watchers hear about new SBF supply in their town.
+              await ctx.runMutation(internal.alertsEngine.notifyProjectUpdate, {
+                projectId,
+                title: `SBF balance flats in ${town.name}`,
+                body:
+                  `${totalUnitsLine(project)} balance flats in ${town.name} were offered in the ${exercise.label} exercise. ` +
+                  `SBF flats often mean much shorter waits than BTO. Check the pool before the window closes.`,
+              });
+            }
+
+            const mappable = project.soleUnits.filter(
+              (u): u is SoleFlatTypeUnits & { flatType: "2-room Flexi" | "3-room" | "4-room" | "5-room" | "3Gen" } =>
+                !u.combined,
+            );
+            if (mappable.length > 0) {
+              await ctx.runMutation(internal.ingest.hdb.upsertSbfFlatTypes, {
+                projectId,
+                rows: mappable.map((u) => ({ type: u.flatType, units: u.supply })),
+              });
+            }
+
+            const facts: FactToApply[] = [];
+            if (project.classification) {
+              facts.push({
+                field: "classification",
+                value: project.classification,
+                note: `SBF${exercise.quarter} application-rate file`,
+              });
+            }
+            if (exercise.applicationEnd) {
+              facts.push({
+                field: "applicationDeadline",
+                value: exercise.applicationEnd,
+                note: `application window ${exercise.applicationStart ?? "unknown"} → ${exercise.applicationEnd} (${exercise.key})`,
+              });
+            }
+            if (project.totalUnits !== null) {
+              facts.push({
+                field: "totalUnits",
+                value: String(project.totalUnits),
+                note: `sum of estate rows in SBF${exercise.quarter}`,
+              });
+            }
+            for (const units of project.soleUnits) {
+              facts.push({
+                field: `flatType.${units.flatType}.units`,
+                value: String(units.supply),
+                note: units.combined
+                  ? `combined "${units.flatType}" estate row as published in SBF${exercise.quarter} — split by flat type not published`
+                  : `estate row in SBF${exercise.quarter}`,
+              });
+              if (units.applicants !== null) {
+                facts.push({
+                  field: `flatType.${units.flatType}.applicants`,
+                  value: String(units.applicants),
+                  note: `applications received for the "${units.flatType}" row in SBF${exercise.quarter}`,
+                });
+              }
+            }
+
+            for (const fact of facts) {
+              const result = await ctx.runMutation(
+                internal.ingest.lib.applyProjectFact,
+                {
+                  projectId,
+                  field: fact.field,
+                  value: fact.value,
+                  confidence: "official",
+                  extractionMethod: "parser",
+                  sourceId,
+                  ...(fact.note !== undefined ? { note: fact.note } : {}),
+                },
+              );
+              if (result === "inserted") summary.factsInserted++;
+              else if (result === "unchanged") summary.factsUnchanged++;
+              else summary.factsConflicts++;
+            }
             continue;
           }
 
@@ -833,6 +1216,13 @@ export const run = internalAction({
                 ? `combined "${units.flatType}" estate row as published in BTO${exercise.quarter} — split by flat type not published`
                 : `single-project estate row in BTO${exercise.quarter}`,
             });
+            if (units.applicants !== null) {
+              facts.push({
+                field: `flatType.${units.flatType}.applicants`,
+                value: String(units.applicants),
+                note: `applications received for the "${units.flatType}" row in BTO${exercise.quarter}`,
+              });
+            }
           }
 
           for (const fact of facts) {

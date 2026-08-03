@@ -21,7 +21,9 @@ export interface RankableProject {
   name: string;
   town: string;
   region: string;
-  classification: "Standard" | "Plus" | "Prime";
+  // SBF pools are excluded upstream; "Unclassified" stays in the type so the
+  // schema union flows through without casts.
+  classification: "Standard" | "Plus" | "Prime" | "Unclassified";
   lifecycleStatus: string;
   estimatedWaitMonths: number;
   estimatedCompletion: string;

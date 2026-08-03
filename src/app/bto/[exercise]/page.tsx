@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
 import { CalendarX } from "lucide-react";
 
@@ -70,6 +71,12 @@ export default async function ExercisePage({ params }: Props) {
         />
       </div>
     );
+  }
+
+  // SBF exercises live under /sbf/{key}; a hand-edited /bto/{sbf-key} URL
+  // would render town pools as broken BTO cards.
+  if (row.exercise.type !== "bto") {
+    redirect(`/sbf/${row.exercise.key}`);
   }
 
   const { exercise } = row;

@@ -45,22 +45,27 @@ export function formatTimestamp(ts: number): string {
   return `${date.getDate()} ${MONTHS_SHORT[date.getMonth()]} ${date.getFullYear()}`;
 }
 
-/** "Kallang/Whampoa" → "/bto/town/kallang-whampoa". */
+/**
+ * "Kallang/Whampoa" → "/bto/town/kallang-whampoa";
+ * "Jurong East/ West" → "/bto/town/jurong-east-west". A slash with or
+ * without surrounding spaces collapses to a single dash.
+ */
 export function townHref(townName: string): string {
   const slug = townName
     .toLowerCase()
-    .replace(/\//g, "-")
+    .replace(/\s*\/\s*/g, "-")
     .replace(/\s+/g, "-");
   return `/bto/town/${slug}`;
 }
 
 /**
  * Inverse of townHref's slug: "bukit-merah" → "Bukit Merah".
- * Only "Kallang/Whampoa" breaks plain capitalisation.
+ * HDB's slash-lumped towns break plain capitalisation and decode here.
  */
 export function decodeTownParam(param: string): string {
   const SPECIAL: Record<string, string> = {
     "kallang-whampoa": "Kallang/Whampoa",
+    "jurong-east-west": "Jurong East/ West",
   };
   const key = param.toLowerCase();
   if (SPECIAL[key]) return SPECIAL[key];

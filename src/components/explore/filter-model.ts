@@ -10,9 +10,14 @@ export const REGIONS = ["Central", "East", "North", "North-East", "West"] as con
 export const CLASSIFICATIONS = ["Standard", "Plus", "Prime"] as const;
 export const FLAT_TYPES = ["2-room Flexi", "3-room", "4-room", "5-room", "3Gen"] as const;
 export const APPLICATION_STATUSES = ["open", "upcoming", "closed"] as const;
+export const SALE_TYPES = ["bto", "sbf"] as const;
 
-export type Classification = (typeof CLASSIFICATIONS)[number];
+// Schema-wide union (SBF pools can be "Unclassified"); the filter UI only
+// offers the CLASSIFICATIONS options above.
+export type Classification = "Standard" | "Plus" | "Prime" | "Unclassified";
+
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
+export type SaleType = (typeof SALE_TYPES)[number];
 export type ExplorerView = "split" | "list";
 export type ExplorerSort = "price" | "wait" | "name";
 
@@ -22,8 +27,16 @@ export const APPLICATION_STATUS_LABELS: Record<ApplicationStatus, string> = {
   closed: "Closed",
 };
 
+export const SALE_TYPE_LABELS: Record<SaleType, string> = {
+  bto: "BTO",
+  sbf: "SBF",
+};
+
 /** Per-option result counts for the status segmented control. */
 export type StatusCounts = Record<ApplicationStatus | "all", number>;
+
+/** Per-option result counts for the sale-type segmented control. */
+export type SaleCounts = Record<SaleType | "all", number>;
 
 /** Local "YYYY-MM-DD" — string-comparable against stored ISO deadlines. */
 export function todayIso(): string {
@@ -61,6 +74,7 @@ export const WAIT_MAX = 60;
 export type ExplorerFilters = {
   q: string;
   status: ApplicationStatus | undefined;
+  saleType: SaleType | undefined;
   town: string | undefined;
   region: string | undefined;
   classifications: Classification[];
@@ -73,6 +87,7 @@ export type ExplorerFilters = {
 export const DEFAULT_FILTERS: ExplorerFilters = {
   q: "",
   status: undefined,
+  saleType: undefined,
   town: undefined,
   region: undefined,
   classifications: [],
@@ -108,12 +123,16 @@ export function parseExplorerParams(params: SearchParamRecord): ExplorerFilters 
   const region = first(params.region);
   const flat = first(params.flat);
   const status = first(params.status);
+  const sale = first(params.sale);
   const view = first(params.view);
 
   return {
     q: first(params.q) ?? "",
     status: (APPLICATION_STATUSES as readonly string[]).includes(status ?? "")
       ? (status as ApplicationStatus)
+      : undefined,
+    saleType: (SALE_TYPES as readonly string[]).includes(sale ?? "")
+      ? (sale as SaleType)
       : undefined,
     town: first(params.town) || undefined,
     region: (REGIONS as readonly string[]).includes(region ?? "")
@@ -147,6 +166,7 @@ export function serializeExplorerParams(filters: ExplorerFilters): string {
   const sp = new URLSearchParams();
   if (filters.q.trim()) sp.set("q", filters.q.trim());
   if (filters.status) sp.set("status", filters.status);
+  if (filters.saleType) sp.set("sale", filters.saleType);
   if (filters.town) sp.set("town", filters.town);
   if (filters.region) sp.set("region", filters.region);
   if (filters.classifications.length > 0)
@@ -162,6 +182,7 @@ export function hasActiveFilters(filters: ExplorerFilters): boolean {
   return (
     filters.q.trim() !== "" ||
     filters.status !== undefined ||
+    filters.saleType !== undefined ||
     filters.town !== undefined ||
     filters.region !== undefined ||
     filters.classifications.length > 0 ||
@@ -192,6 +213,13 @@ export function activeFilterChips(filters: ExplorerFilters): FilterChip[] {
       key: "status",
       label: APPLICATION_STATUS_LABELS[filters.status],
       patch: { status: undefined },
+    });
+  }
+  if (filters.saleType) {
+    chips.push({
+      key: "sale",
+      label: SALE_TYPE_LABELS[filters.saleType],
+      patch: { saleType: undefined },
     });
   }
   if (filters.town) {

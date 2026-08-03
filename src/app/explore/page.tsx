@@ -4,9 +4,9 @@ import { paramsIdentity } from "@/components/explore/filter-model";
 import { Explorer } from "./explorer";
 
 export const metadata: Metadata = {
-  title: "Explore BTO projects — BTOProjects.sg",
+  title: "Explore BTO and SBF projects — BTOProjects.sg",
   description:
-    "Every BTO project in Singapore on one calm map. Filter by application status, town, region, price, flat type, wait time and classification.",
+    "Every BTO project and SBF town pool in Singapore on one calm map. Filter by sale type, application status, town, region, price, flat type, wait time and classification.",
 };
 
 export default async function ExplorePage({

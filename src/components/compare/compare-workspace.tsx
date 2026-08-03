@@ -28,9 +28,15 @@ function formatCount(value: number): string {
 }
 
 function fromPriceOf(summary: ProjectSummary): number | null {
-  return summary.flatTypes.length
-    ? Math.min(...summary.flatTypes.map((f) => f.minPrice))
-    : null;
+  if (!summary.flatTypes.length) return null;
+  const min = Math.min(...summary.flatTypes.map((f) => f.minPrice));
+  // 0 = "TBC" (SBF pools; prices were on the portal, not in our data).
+  return min > 0 ? min : null;
+}
+
+/** Honest cell for figures that exist but are not in our data (SBF prices). */
+function Tbc() {
+  return <span className="text-muted-foreground">TBC</span>;
 }
 
 function mrtWalkOf(summary: ProjectSummary): number | null {
@@ -64,6 +70,7 @@ const GROUPS: RowGroup[] = [
         label: "From price",
         metric: fromPriceOf,
         cell: (s) => {
+          if (s.project.saleType === "sbf") return <Tbc />;
           const from = fromPriceOf(s);
           return from === null ? (
             <MutedDash />
@@ -76,7 +83,9 @@ const GROUPS: RowGroup[] = [
         key: "range",
         label: "Price range",
         cell: (s) =>
-          s.flatTypes.length === 0 ? (
+          s.project.saleType === "sbf" ? (
+            <Tbc />
+          ) : s.flatTypes.length === 0 ? (
             <MutedDash />
           ) : (
             <span className="tnum">
@@ -89,7 +98,9 @@ const GROUPS: RowGroup[] = [
         key: "per-type",
         label: "By flat type",
         cell: (s) =>
-          s.flatTypes.length === 0 ? (
+          s.project.saleType === "sbf" ? (
+            <Tbc />
+          ) : s.flatTypes.length === 0 ? (
             <MutedDash />
           ) : (
             <div className="flex flex-col gap-1">
@@ -115,6 +126,11 @@ const GROUPS: RowGroup[] = [
         // 0 means "timeline TBC" (announced) — exclude from best-cell scoring.
         metric: (s) => s.project.estimatedWaitMonths || null,
         cell: (s) => {
+          if (s.project.saleType === "sbf") {
+            // Pool semantics: 0-month wait is not "TBC" here; many balance
+            // flats are completed or near completion.
+            return <span>Short; many completed</span>;
+          }
           const months = s.project.estimatedWaitMonths;
           if (months <= 0) {
             return <span className="text-muted-foreground">TBC</span>;

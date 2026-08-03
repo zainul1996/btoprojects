@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, query } from "./_generated/server";
 import type { Doc } from "./_generated/dataModel";
 import { authedMutation, authedQuery } from "./lib/auth";
-import { lifecycleStatusValidator } from "./schema";
+import { classificationValidator, lifecycleStatusValidator } from "./schema";
 
 const rankableFlatTypeValidator = v.object({
   type: v.string(),
@@ -16,11 +16,7 @@ const rankableProjectValidator = v.object({
   name: v.string(),
   town: v.string(),
   region: v.string(),
-  classification: v.union(
-    v.literal("Standard"),
-    v.literal("Plus"),
-    v.literal("Prime"),
-  ),
+  classification: classificationValidator,
   lifecycleStatus: lifecycleStatusValidator,
   estimatedWaitMonths: v.number(),
   estimatedCompletion: v.string(),
@@ -100,12 +96,15 @@ export const clearSession = authedMutation({
 export const allForRanking = internalQuery({
   args: {},
   handler: async (ctx) => {
-    // Exclude ingestion shells (totalUnits 0 placeholder) and announced-only
-    // projects (no prices yet — budget scoring would mislead). Announced
-    // projects return to rankings the day launch data lands.
+    // Exclude ingestion shells (totalUnits 0 placeholder), announced-only
+    // projects (no prices yet — budget scoring would mislead) and SBF pool
+    // rows (town-level offerings without per-unit prices/timelines — they
+    // would corrupt scores; the planner narrates them via search instead).
     const projects = (await ctx.db.query("projects").collect()).filter(
       (project) =>
-        project.totalUnits > 0 && project.lifecycleStatus !== "announced",
+        project.totalUnits > 0 &&
+        project.lifecycleStatus !== "announced" &&
+        (project.saleType ?? "bto") === "bto",
     );
     return await Promise.all(
       projects.map(async (project) => {
@@ -154,11 +153,13 @@ export const forRanking = query({
   args: {},
   returns: v.array(rankableProjectValidator),
   handler: async (ctx) => {
-    // Same exclusions as allForRanking: placeholder shells (totalUnits 0)
-    // and announced-only projects (no prices to rank on).
+    // Same exclusions as allForRanking: placeholder shells (totalUnits 0),
+    // announced-only projects (no prices to rank on) and SBF pool rows.
     const projects = (await ctx.db.query("projects").collect()).filter(
       (project) =>
-        project.totalUnits > 0 && project.lifecycleStatus !== "announced",
+        project.totalUnits > 0 &&
+        project.lifecycleStatus !== "announced" &&
+        (project.saleType ?? "bto") === "bto",
     );
     return await Promise.all(
       projects.map(async (project) => {

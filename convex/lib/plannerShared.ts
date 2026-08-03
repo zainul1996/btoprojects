@@ -196,16 +196,22 @@ GROUND RULES (mandatory):
  * must come from a tool result this turn. Kept separate so the Convex action
  * path's prompt stays record-driven.
  */
-export const AGENT_SYSTEM_PROMPT = `You are the BTOProjects.sg planning assistant: a careful guide for Singapore HDB BTO buyers. You answer using the tools provided; every project, price, and date you state must come from a tool result in this conversation.
+export const AGENT_SYSTEM_PROMPT = `You are the BTOProjects.sg planning assistant: a careful guide for Singapore HDB BTO and SBF buyers. You answer using the tools provided; every project, price, and date you state must come from a tool result in this conversation.
 
 TOOL USE (mandatory):
-- Recommendations ("which is best for me", budgets, comparisons): call rankProjects with the buyer's constraints. Its scores are deterministic; explain them in your own words.
-- Factual listing questions (what is upcoming, what launched in a town or region, projects under a price): call searchProjects.
-- One specific project: call getProjectDetail with a slug from an earlier tool result.
+- Recommendations ("which is best for me", budgets, comparisons): call rankProjects with the buyer's constraints. Its scores are deterministic; explain them in your own words. It ranks BTO launches only.
+- Factual listing questions (what is upcoming, what launched in a town or region, projects under a price): call searchProjects. It covers BTO launches and SBF balance-flat pools; pass saleType only when the user specified one kind.
+- One specific project or SBF town pool: call getProjectDetail with a slug from an earlier tool result.
 - Resale prices ("what can I sell for", "BTO vs resale"): call getResaleMedian.
-- Launch windows and deadlines: call listExercises.
+- Launch windows, deadlines, and "when is the next BTO / next SBF": call listExercises.
 - Anything our records cannot answer (nearby amenities, landmarks, schools, eligibility policy, launches not yet in our records): call webSearch, and say the answer is from the web, not our records.
 - Call only the tools you need; do not repeat a call you already made this turn.
+
+SBF (SALE OF BALANCE FLATS):
+- SBF pools are unsold balance flats from earlier launches, sold by town and flat type rather than as named projects. Many are completed or near completion, so waits are much shorter than BTO. Cite them by slug like any project, e.g. [sbf-2026-02-woodlands].
+- Cadence: one SBF exercise every February, alongside the February BTO launch. Answer "when is the next SBF" from listExercises only. The town and flat-type mix of a future SBF is revealed on launch day, so never predict which towns it will include.
+- We hold no SBF prices; they are published only at launch. Never quote, estimate, or invent one. Unit counts (supply) and application counts (demand) from tool results may be cited.
+- When a user asks about upcoming projects or short waits without saying BTO or SBF, present both kinds, then ask ONE follow-up like "BTO or SBF, and when do you expect to collect keys?" only when the answer actually depends on it.
 
 GROUND RULES:
 - Never invent projects, prices, dates, unit counts, or towns. If a tool returns nothing, say so plainly, name what IS covered (townsCovered / total fields), and offer the closest alternative or setting an alert.
@@ -249,7 +255,7 @@ export interface RankingResultItem {
   slug: string;
   name: string;
   town: string;
-  classification: "Standard" | "Plus" | "Prime";
+  classification: "Standard" | "Plus" | "Prime" | "Unclassified";
   totalScore: number;
   breakdown: {
     budgetFit: ScoreComponent;
@@ -560,13 +566,44 @@ const MRT_CHIP: PlannerSuggestion = {
   message: "which of these is nearest an MRT station",
 };
 
+/** Sale-type mix visible in a turn's answer (search/detail/town paths). */
+export interface SaleTypeMix {
+  bto: number;
+  sbf: number;
+}
+
 export function buildSuggestions(opts: {
   kind: ExtractionKind;
   constraints: NormalizedConstraints | null;
   top: RankedProject[];
   noMatch?: NarrationNoMatch;
+  /** When the answer surfaced both kinds, offer sale-type narrowing chips. */
+  saleTypes?: SaleTypeMix;
+  /** True when listExercises already ran; the next-SBF chip would repeat it. */
+  calendarChecked?: boolean;
 }): PlannerSuggestion[] {
   if (opts.kind === "chitchat") return [];
+
+  const mix = opts.saleTypes;
+  if (mix && mix.bto > 0 && mix.sbf > 0) {
+    return [
+      { kind: "reply", label: "Only BTO launches", message: "only BTO launches" },
+      {
+        kind: "reply",
+        label: "Only SBF balance flats",
+        message: "only SBF balance flats",
+      },
+    ];
+  }
+  if (mix && mix.sbf > 0 && mix.bto === 0 && !opts.calendarChecked) {
+    return [
+      {
+        kind: "reply",
+        label: "When is the next SBF?",
+        message: "when is the next SBF exercise",
+      },
+    ];
+  }
 
   if (opts.noMatch?.suggestionMode === "region-neighbours") {
     const region = opts.top[0]?.project.region;

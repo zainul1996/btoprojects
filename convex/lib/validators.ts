@@ -45,6 +45,7 @@ export const projectValidator = v.object({
   region: v.string(),
   classification: classificationValidator,
   lifecycleStatus: lifecycleStatusValidator,
+  saleType: v.optional(exerciseTypeValidator),
   lat: v.number(),
   lng: v.number(),
   description: v.string(),
@@ -98,6 +99,8 @@ export const projectSummaryValidator = v.object({
   project: projectValidator,
   town: v.union(townValidator, v.null()),
   flatTypes: v.array(flatTypeValidator),
+  // Exercise label ("February 2026 SBF") for card-level provenance chips.
+  exerciseLabel: v.union(v.string(), v.null()),
 });
 
 export const projectDetailsValidator = v.object({

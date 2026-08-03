@@ -12,7 +12,7 @@ import {
   type ProjectDetails,
 } from "./utils";
 
-function FactRow({
+export function FactRow({
   label,
   value,
   confidence,
@@ -46,8 +46,8 @@ export function OfficialFacts({ details }: { details: ProjectDetails }) {
       <CardContent className="p-5 md:p-6">
         {sorted.length === 0 ? (
           <p className="rounded-lg border border-dashed border-border px-4 py-4 text-sm text-muted-foreground">
-            Prices are published at launch — HDB releases the price list with
-            the sales exercise. We carry it here the day it&apos;s out.
+            Prices are published at launch. HDB releases the price list with
+            the sales exercise, and we carry it here the day it&apos;s out.
           </p>
         ) : (
           <div className="overflow-x-auto">

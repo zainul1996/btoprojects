@@ -6,6 +6,7 @@ import { MapPin } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectCard } from "@/components/project-card";
+import { SbfPoolCard } from "@/components/project/sbf-pool-card";
 import { decodeTownParam } from "@/components/project/utils";
 import { Section } from "@/components/section";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,12 @@ export default async function TownPage({ params }: Props) {
     townName,
   });
   const resolvedName = town?.name ?? townName;
+
+  // SBF town pools sit below BTO projects in their own section.
+  const btoProjects = projects.filter(
+    (s) => (s.project.saleType ?? "bto") === "bto",
+  );
+  const sbfProjects = projects.filter((s) => s.project.saleType === "sbf");
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
@@ -96,14 +103,35 @@ export default async function TownPage({ params }: Props) {
           }
         />
       ) : (
-        <Section title={`Projects in ${resolvedName}`}>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {projects.map((summary) => (
-              <ProjectCard key={summary.project._id} summary={summary} />
-            ))}
-          </div>
-        </Section>
-      )}
+        <>
+            {btoProjects.length > 0 ? (
+              <Section title={`Projects in ${resolvedName}`}>
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {btoProjects.map((summary) => (
+                    <ProjectCard key={summary.project._id} summary={summary} />
+                  ))}
+                </div>
+              </Section>
+            ) : null}
+
+            {sbfProjects.length > 0 ? (
+              <Section
+                title="Balance flats (SBF)"
+                description="Sold by town and flat type, not by project. Many are completed or near completion."
+              >
+                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {sbfProjects.map((summary) => (
+                    <SbfPoolCard
+                      key={summary.project._id}
+                      summary={summary}
+                      exerciseLabel={summary.exerciseLabel ?? undefined}
+                    />
+                  ))}
+                </div>
+              </Section>
+            ) : null}
+          </>
+        )}
     </div>
   );
 }

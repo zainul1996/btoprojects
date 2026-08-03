@@ -36,6 +36,7 @@ import type * as resale from "../resale.js";
 import type * as seed from "../seed.js";
 import type * as seedData from "../seedData.js";
 import type * as seedOct2026 from "../seedOct2026.js";
+import type * as seedSbf from "../seedSbf.js";
 import type * as telegram from "../telegram.js";
 import type * as towns from "../towns.js";
 import type * as users from "../users.js";
@@ -76,6 +77,7 @@ declare const fullApi: ApiFromModules<{
   seed: typeof seed;
   seedData: typeof seedData;
   seedOct2026: typeof seedOct2026;
+  seedSbf: typeof seedSbf;
   telegram: typeof telegram;
   towns: typeof towns;
   users: typeof users;

@@ -102,11 +102,11 @@ Never commit secrets; store in `.env.local` (gitignored) and Vercel/Convex envir
 - `www.hdb.gov.sg/robots.txt` → long e-service disallow list + final `Allow: /`; sitemap at `/sitemap.xml`. No BTO/content path disallowed; WAF is the practical blocker, not robots.
 
 **Chosen-source specifics:**
-- URL pattern: `https://services-homes.hdb.gov.sg/sales/files/apprates/BTO{YYYYMM}.json` (e.g. `BTO202606.json`); SBF equivalents exist as `SBF{YYYYMM}.json` (not ingested yet).
+- URL pattern: `https://services-homes.hdb.gov.sg/sales/files/apprates/BTO{YYYYMM}.json` (e.g. `BTO202606.json`); SBF equivalents exist as `SBF{YYYYMM}.json` (ingested since 3 Aug 2026 — see SBF section below).
 - Missing quarters 302 → `/sales/error/404`; fetch with `redirect: "manual"` and treat non-200/non-JSON as absent.
 - Retention appears to be recent exercises only: on 3 Aug 2026, `BTO202602` and `BTO202606` resolve; `BTO202510` and older already 302. **Run regularly; no backfill possible from this source.**
 - A quarter's file appears when the exercise opens — pre-launch discovery is impossible here.
-- Request budget per run: 1 POST (live signal) + ≤9 GET probes (Feb/Jun/Jul/Oct × current+previous SGT year, +next Feb in Nov/Dec), serial with 400 ms gaps. Descriptive UA `BTOProjects.sg launch-ingest/1.0` is accepted (no WAF on this host).
+- Request budget per run: 1 POST (live signal) + ≤12 GET probes (BTO Feb/Jun/Jul/Oct + SBF Feb × current+previous SGT year, +next Feb in Nov/Dec, +live quarter both kinds), serial with 400 ms gaps. Descriptive UA `BTOProjects.sg launch-ingest/1.0` is accepted (no WAF on this host).
 
 **What the source yields vs what `projects` wants (gap list):**
 
@@ -117,8 +117,16 @@ Never commit secrets; store in `.env.local` (gitignored) and Vercel/Convex envir
 | classification (Standard/Plus/Prime) | ✅ per project | fact `classification` (official) |
 | totalUnits | ⚠️ partial | only when every estate row naming the project is single-project (verified: sums match seed, e.g. Redhill Peaks 1052) |
 | flat-type units | ⚠️ partial | only single-project rows; shared rows (split unpublished) skipped; `5-Room/3Gen` combined rows stored verbatim as `flatType.5-Room/3Gen.units` |
-| application rates per household type | ✅ per estate×flat-type row | NOT ingested yet (attribution ambiguous for shared rows) — future extension |
+| applications received per row | ✅ `total_applicant_no` | fact `flatType.<label>.applicants` (official) — demand signal for BTO and SBF |
 | prices (min/max per flat type) | ❌ | needs MyNiceHome/press-release parser |
 | estimatedCompletion / wait months | ❌ | needs MyNiceHome (waiting-time text) or manual research |
 | lat/lng, nearest MRT, schools | ❌ | OneMap geocode track (W1 parallel agent) |
-| SBF inventory | separate files | `SBF{YYYYMM}.json` — future extension |
+
+## SBF application-rate files (since 3 Aug 2026)
+
+- Same host, same shape: `SBF{YYYYMM}.json` (verified `SBF202602` = 4,320 units / 24 towns / 80 rows, matching HDB's Feb 2026 press release exactly; `SBF202502` and older already 302 — same recency retention).
+- SBF cadence: **one exercise each February** since 2024, alongside the Feb BTO. Composition is revealed only on launch day, so the Feb probe + live-quarter signal are the discovery mechanism.
+- Rows are town-level pools: `project_name == estate_name`, sometimes listed several times per row with different classifications (`NA` / `Plus` / `Prime` / `Standard`). The duplicates are the SAME pool split by classification — supply is the pool total (unlike BTO shared rows, where splits are unpublished). Pool classification lands on "Unclassified" unless uniform.
+- Flat types outside the BTO union (`Community Care Apartment`, `5-Room/3Gen`, `5-Room/Executive`) are stored as verbatim facts, never guessed into the union.
+- No prices anywhere in SBF files — starting prices live in the launch-day press release annex (WAF-blocked on hdb.gov.sg; mirrors like ERA/99.co carry them — secondary-confidence extraction is a P3 track).
+- Town quirks: `Kallang Whampoa` → aliased to `Kallang/Whampoa`; `Jurong East/ West` is HDB's own lumping, kept verbatim with a dedicated towns row (midpoint coords).

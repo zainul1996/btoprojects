@@ -40,14 +40,15 @@
   outline-offset: 1px;
 }
 
-/* Layering: announced area halos sit under launched point markers; the
-   focused marker always floats above both. */
-.bto-map-marker[data-variant="area"] {
+/* Layering: area halos (announced sites, SBF town pools) sit under launched
+   point markers; the focused marker always floats above both. */
+.bto-map-marker[data-variant="area"],
+.bto-map-marker[data-variant="area-sbf"] {
   z-index: 0;
   padding: 12px; /* hit target covers the 34px halo */
 }
 
-.bto-map-marker:not([data-variant="area"]) {
+.bto-map-marker:not([data-variant]) {
   z-index: 1;
 }
 
@@ -72,6 +73,14 @@
 
 .bto-map-marker[data-variant="area"] .bto-map-marker__dot {
   background: var(--navy);
+}
+
+/* SBF town pools: same area treatment as announced, but teal with a dashed
+   ring — a pool of flats spread across the town, not one approximate site.
+   The dot keeps the default teal of launched pins (these flats exist now). */
+.bto-map-marker[data-variant="area-sbf"] .bto-map-marker__halo {
+  background: color-mix(in oklab, var(--teal-deep) 10%, transparent);
+  border: 1.5px dashed color-mix(in oklab, var(--teal-deep) 45%, transparent);
 }
 
 /* Popup — calm card on the warm surface, ink text, teal link. */

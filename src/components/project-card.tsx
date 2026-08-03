@@ -25,6 +25,28 @@ function flatAbbr(type: string): string {
   return FLAT_ABBR[type] ?? type;
 }
 
+const MONTH_ABBR: Record<string, string> = {
+  January: "Jan",
+  February: "Feb",
+  March: "Mar",
+  April: "Apr",
+  May: "May",
+  June: "Jun",
+  July: "Jul",
+  August: "Aug",
+  September: "Sep",
+  October: "Oct",
+  November: "Nov",
+  December: "Dec",
+};
+
+/** "February 2026 SBF" -> "Feb 2026"; unexpected shapes pass through. */
+export function shortExerciseLabel(label: string): string {
+  const [month, year] = label.split(" ");
+  if (!month || !year) return label;
+  return `${MONTH_ABBR[month] ?? month} ${year}`;
+}
+
 /**
  * The project's face everywhere — explorer lists, town/exercise pages.
  * One idea per card (DESIGN.md): what it is, where, from how much, how long
@@ -37,11 +59,14 @@ export function ProjectCard({
   summary: ProjectSummary;
   className?: string;
 }) {
-  const { project, town, flatTypes } = summary;
+  const { project, town, flatTypes, exerciseLabel } = summary;
   const isAnnounced = project.lifecycleStatus === "announced";
+  const isSbf = project.saleType === "sbf";
   const fromPrice = flatTypes.length
     ? Math.min(...flatTypes.map((f) => f.minPrice))
     : null;
+  // 0 means "price TBC" (announced projects, SBF pools) — never show $0.
+  const knownPrice = fromPrice !== null && fromPrice > 0 ? fromPrice : null;
   const sortedFlats = [...flatTypes].sort(
     (a, b) => a.minPrice - b.minPrice,
   );
@@ -68,13 +93,36 @@ export function ProjectCard({
               {town?.name ?? project.region} · {project.region}
             </p>
           </div>
-          <LifecycleChip stage={project.lifecycleStatus} />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className={
+                isSbf
+                  ? "border-teal-deep/25 bg-teal-subtle font-medium text-teal-deeper"
+                  : "font-medium text-muted-foreground"
+              }
+            >
+              {isSbf ? "SBF" : "BTO"}
+            </Badge>
+            <LifecycleChip stage={project.lifecycleStatus} />
+          </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-1.5">
-          <Badge variant="outline" className="font-medium">
-            {project.classification}
-          </Badge>
+          {isSbf && exerciseLabel ? (
+            <Badge
+              variant="outline"
+              className="font-normal text-muted-foreground"
+            >
+              {shortExerciseLabel(exerciseLabel)}
+            </Badge>
+          ) : null}
+          {/* "Unclassified" is noise on a pool (rules vary per flat) — skip. */}
+          {project.classification !== "Unclassified" ? (
+            <Badge variant="outline" className="font-medium">
+              {project.classification}
+            </Badge>
+          ) : null}
           {sortedFlats.map((f) => (
             <Badge key={f._id} variant="secondary" className="font-normal">
               {flatAbbr(f.type)}
@@ -84,12 +132,12 @@ export function ProjectCard({
 
         <div className="flex items-end justify-between gap-3">
           <div>
-            {fromPrice !== null ? (
+            {knownPrice !== null ? (
               <p className="text-lg font-semibold text-ink">
                 <span className="text-sm font-normal text-muted-foreground">From </span>
-                <Price value={fromPrice} />
+                <Price value={knownPrice} />
               </p>
-            ) : isAnnounced ? (
+            ) : isAnnounced || isSbf ? (
               <p className="text-sm font-medium text-muted-foreground">
                 Prices at launch
               </p>
@@ -99,7 +147,9 @@ export function ProjectCard({
                 <Clock3 className="size-3.5" aria-hidden />
                 {project.estimatedWaitMonths > 0
                   ? `~${project.estimatedWaitMonths} mo wait`
-                  : "Timeline TBC"}
+                  : isSbf
+                    ? "Shorter wait; many completed"
+                    : "Timeline TBC"}
               </span>
               {project.nearestMrt.length > 0 && (
                 <span className="inline-flex items-center gap-1">
@@ -113,7 +163,9 @@ export function ProjectCard({
           </div>
         </div>
 
-        <div className="pointer-events-auto mt-1 flex items-center justify-end gap-1 border-t border-border/60 pt-3">
+        {/* mt-auto pins actions to the card bottom, so a two-line badge row
+            on one card never shifts the buttons relative to its neighbours. */}
+        <div className="pointer-events-auto mt-auto flex items-center justify-end gap-1 border-t border-border/60 pt-3">
           <WatchButton
             targetType="project"
             targetId={project.slug}

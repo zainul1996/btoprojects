@@ -62,6 +62,34 @@ function suitBullets(details: ProjectDetails): string[] {
   return bullets.slice(0, 3);
 }
 
+/** SBF pools: who a town pool suits, from pool semantics rather than prices. */
+function sbfSuitBullets(details: ProjectDetails): string[] {
+  const { project, town, flatTypes } = details;
+  const townName = town?.name ?? project.region;
+  const bullets = [
+    "Buyers who need keys soon: many balance flats are completed or nearing completion.",
+    `Households set on ${townName}: you apply for the town pool, not a specific block.`,
+  ];
+  if (flatTypes.some((f) => f.type === "2-room Flexi")) {
+    bullets.push("Singles and smaller households: 2-room Flexi flats are on offer.");
+  }
+  if (flatTypes.some((f) => f.type === "3Gen")) {
+    bullets.push("Multi-generation families: 3Gen flats are on offer.");
+  }
+  if (bullets.length < 3) {
+    bullets.push(
+      "Applicants weighing SBF against the next BTO: a shorter wait, from a fixed pool.",
+    );
+  }
+  return bullets.slice(0, 3);
+}
+
+function sbfKeyCompromise(details: ProjectDetails): string {
+  const { project, town } = details;
+  const townName = town?.name ?? project.region;
+  return `No picking a block or stack: within the ${townName} pool, block, remaining lease and price vary per flat.`;
+}
+
 /** The one honest trade-off, picked by severity from the data. */
 function keyCompromise(details: ProjectDetails): string {
   const { project, town, flatTypes } = details;
@@ -87,6 +115,10 @@ function keyCompromise(details: ProjectDetails): string {
 }
 
 export function DecisionSummary({ details }: { details: ProjectDetails }) {
+  const isSbf = details.project.saleType === "sbf";
+  const bullets = isSbf ? sbfSuitBullets(details) : suitBullets(details);
+  const compromise = isSbf ? sbfKeyCompromise(details) : keyCompromise(details);
+
   return (
     <Card>
       <CardContent className="space-y-4 p-5 md:p-6">
@@ -95,7 +127,7 @@ export function DecisionSummary({ details }: { details: ProjectDetails }) {
           <SourceBadge variant="analysis" size="sm" />
         </div>
         <ul className="space-y-2.5">
-          {suitBullets(details).map((bullet) => (
+          {bullets.map((bullet) => (
             <li key={bullet} className="flex items-start gap-2.5 text-sm">
               <Check className="mt-0.5 size-4 shrink-0 text-teal-deep" aria-hidden />
               <span>{bullet}</span>
@@ -104,7 +136,7 @@ export function DecisionSummary({ details }: { details: ProjectDetails }) {
         </ul>
         <p className="border-t border-border/60 pt-3 text-sm">
           <span className="font-medium text-ink">Key compromise: </span>
-          <span className="text-muted-foreground">{keyCompromise(details)}</span>
+          <span className="text-muted-foreground">{compromise}</span>
         </p>
       </CardContent>
     </Card>

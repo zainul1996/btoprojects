@@ -25,6 +25,9 @@ export const classificationValidator = v.union(
   v.literal("Standard"),
   v.literal("Plus"),
   v.literal("Prime"),
+  // SBF pools mix classifications (or predate them); HDB publishes these
+  // rows as "NA"/"Unclassified" — stored honestly rather than guessed.
+  v.literal("Unclassified"),
 );
 export const lifecycleStatusValidator = v.union(
   v.literal("announced"),
@@ -94,6 +97,9 @@ export default defineSchema({
     region: v.string(),
     classification: classificationValidator,
     lifecycleStatus: lifecycleStatusValidator,
+    // Denormalized from exercises.type so browsing/ranking never needs the
+    // join. Optional for pre-SBF rows; readers treat undefined as "bto".
+    saleType: v.optional(exerciseTypeValidator),
     lat: v.number(),
     lng: v.number(),
     description: v.string(),

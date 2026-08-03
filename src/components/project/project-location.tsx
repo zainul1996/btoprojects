@@ -17,13 +17,14 @@ export function ProjectLocation({ details }: { details: ProjectDetails }) {
   const { project, town, facts } = details;
   const walkConfidence = factConfidence(facts, "mrtWalkingMinutes", "estimated");
   const townName = town?.name;
+  const isSbf = project.saleType === "sbf";
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <div className="space-y-2">
         <ProjectMiniMap lat={project.lat} lng={project.lng} label={project.name} />
         <p className="flex items-center gap-2 text-xs text-muted-foreground">
-          Approximate location
+          {isSbf ? "Town centroid; the pool spans the town" : "Approximate location"}
           <SourceBadge variant={factConfidence(facts, "lat", "estimated")} size="sm" />
         </p>
       </div>
@@ -31,22 +32,30 @@ export function ProjectLocation({ details }: { details: ProjectDetails }) {
       <Card>
         <CardContent className="space-y-4 p-5 md:p-6">
           <h3 className="text-base font-semibold text-ink">Getting around</h3>
-          <ul className="space-y-3">
-            {project.nearestMrt.map((station, index) => (
-              <li key={station} className="flex items-start gap-2.5 text-sm">
-                <TrainFront className="mt-0.5 size-4 shrink-0 text-teal-deep" aria-hidden />
-                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                  <span className="font-medium text-ink">{station}</span>
-                  {index === 0 && project.mrtWalkingMinutes > 0 ? (
-                    <span className="inline-flex items-center gap-2 text-muted-foreground">
-                      ~{project.mrtWalkingMinutes} min walk
-                      <SourceBadge variant={walkConfidence} size="sm" />
-                    </span>
-                  ) : null}
-                </span>
-              </li>
-            ))}
-          </ul>
+          {project.nearestMrt.length > 0 ? (
+            <ul className="space-y-3">
+              {project.nearestMrt.map((station, index) => (
+                <li key={station} className="flex items-start gap-2.5 text-sm">
+                  <TrainFront className="mt-0.5 size-4 shrink-0 text-teal-deep" aria-hidden />
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="font-medium text-ink">{station}</span>
+                    {index === 0 && project.mrtWalkingMinutes > 0 ? (
+                      <span className="inline-flex items-center gap-2 text-muted-foreground">
+                        ~{project.mrtWalkingMinutes} min walk
+                        <SourceBadge variant={walkConfidence} size="sm" />
+                      </span>
+                    ) : null}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              {isSbf
+                ? `Flats in this pool sit across ${townName ?? project.region}; the nearest MRT varies block by block.`
+                : "Nearest MRT and walking times are published at launch."}
+            </p>
+          )}
 
           {townName ? (
             <div className="border-t border-border/60 pt-4">

@@ -7,6 +7,7 @@ import {
   projectSummaryValidator,
   townValidator,
 } from "./lib/validators";
+import { classificationValidator, exerciseTypeValidator } from "./schema";
 
 /**
  * Public, anonymous-friendly project browsing (guardrail: no auth wall).
@@ -22,26 +23,26 @@ async function attachTownAndFlatTypes(
   ctx: QueryCtx,
   project: Doc<"projects">,
 ) {
-  const [town, flatTypes] = await Promise.all([
+  const [town, flatTypes, exercise] = await Promise.all([
     ctx.db.get("towns", project.townId),
     ctx.db
       .query("flatTypes")
       .withIndex("by_project", (q) => q.eq("projectId", project._id))
       .collect(),
+    ctx.db.get("exercises", project.exerciseId),
   ]);
-  return { project, town, flatTypes };
+  return { project, town, flatTypes, exerciseLabel: exercise?.label ?? null };
 }
 
 export const list = query({
   args: {
     region: v.optional(v.string()),
     town: v.optional(v.string()),
-    classification: v.optional(
-      v.union(v.literal("Standard"), v.literal("Plus"), v.literal("Prime")),
-    ),
+    classification: v.optional(classificationValidator),
     flatType: v.optional(v.string()),
     maxPrice: v.optional(v.number()),
     maxWaitMonths: v.optional(v.number()),
+    saleType: v.optional(exerciseTypeValidator),
     search: v.optional(v.string()),
   },
   returns: v.array(projectSummaryValidator),
@@ -87,6 +88,8 @@ export const list = query({
       // price or completion data) until enrichment — keep them off public
       // browsing so cards never render "~0 mo wait" with no price.
       if (project.totalUnits === 0) return false;
+      if (args.saleType && (project.saleType ?? "bto") !== args.saleType)
+        return false;
       if (classification && project.classification !== classification)
         return false;
       if (region && project.region !== region) return false;
@@ -101,7 +104,13 @@ export const list = query({
       if (flatType && !flatTypes.some((f) => f.type === flatType))
         return false;
       // A unit of ANY flat type under the price ceiling qualifies the project.
-      if (maxPrice !== undefined && !flatTypes.some((f) => f.minPrice <= maxPrice))
+      // SBF pools carry no prices (0 = TBC), so they can never satisfy an
+      // honest price ceiling — same philosophy as announced rows and wait.
+      if (
+        maxPrice !== undefined &&
+        ((project.saleType ?? "bto") === "sbf" ||
+          !flatTypes.some((f) => f.minPrice <= maxPrice))
+      )
         return false;
       if (searchNeedle) {
         const haystack = [project.name, project.description, town?.name ?? ""]

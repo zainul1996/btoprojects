@@ -72,7 +72,8 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | F4.4 | Planner surface | Done | Full-page chat (mobile + desktop); docked side-panel variant → later |
 | F4.5 | SEO hardening | In review | Metadata + canonicals + SSR facts done; sitemap.xml + structured data (BreadcrumbList) pending |
 | F4.6 | Analytics (Vercel Web Analytics + events) | Not started | Post-local phase |
-| F4.7 | Backfill → 50–100 pages | In review | Currently: 12 projects + 27 towns + 2 exercises + tools ≈ 45 indexable routes; Oct 2025 backfill would push past 50 |
+| F4.7 | Backfill → 50–100 pages | In review | Currently: 12 BTO projects + 24 SBF pools + 27 towns + exercises + tools ≈ 70 indexable routes |
+| F4.8 | SBF platform-wide integration | In review | Feb 2026 SBF ingested (24 towns / 4,320 units / 80 rows, matches HDB press release); saleType spine, explore filter + area markers + badges, /sbf/[exercise] board, town sections, project-page variant, Expected-next-SBF card (Feb 2027), planner tools/prompts, town-watch alerts |
 
 ## V1 (post-launch, planned)
 
@@ -81,7 +82,7 @@ Last updated: 2 Aug 2026 (post-build sync — first autonomous build complete)
 | V1.1 | Profile-based ranking from saved household profile | Not started | userProfiles table ready |
 | V1.2 | Commute calculator (OneMap routing) | Not started | onemap.geocode ready; routing adapter pending |
 | V1.3 | Affordability scenarios (CPF/grants modelling) | Not started | Indicative strip exists on project page |
-| V1.4 | SBF tracker | Not started | |
+| V1.4 | SBF unit-level listings + launch prices | Not started | Flat Portal listing API unexplored; press-release starting-price tables via secondary mirrors (P3) |
 | V1.5 | Public project change log | Not started | |
 
 ## V2 (planned)

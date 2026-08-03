@@ -29,12 +29,16 @@ import {
   PRICE_MIN,
   PRICE_STEP,
   REGIONS,
+  SALE_TYPES,
+  SALE_TYPE_LABELS,
   WAIT_MAX,
   WAIT_MIN,
   hasActiveFilters,
   type ApplicationStatus,
   type Classification,
   type ExplorerFilters,
+  type SaleCounts,
+  type SaleType,
   type StatusCounts,
 } from "./filter-model";
 
@@ -49,6 +53,11 @@ const STATUS_OPTIONS: { value: ApplicationStatus | undefined; label: string }[] 
     })),
   ];
 
+const SALE_TYPE_OPTIONS: { value: SaleType | undefined; label: string }[] = [
+  { value: undefined, label: "All" },
+  ...SALE_TYPES.map((s) => ({ value: s, label: SALE_TYPE_LABELS[s] })),
+];
+
 function firstValue(value: number | readonly number[]): number {
   return typeof value === "number" ? value : value[0];
 }
@@ -59,6 +68,8 @@ type ExploreFiltersProps = {
   onReset: () => void;
   /** Counts per status option, computed with every other filter applied. */
   statusCounts?: StatusCounts;
+  /** Counts per sale-type option, computed with every other filter applied. */
+  saleCounts?: SaleCounts;
   className?: string;
 };
 
@@ -72,6 +83,7 @@ export function ExploreFilters({
   onPatch,
   onReset,
   statusCounts,
+  saleCounts,
   className,
 }: ExploreFiltersProps) {
   const towns = useQuery(api.towns.list, {});
@@ -99,6 +111,36 @@ export function ExploreFilters({
 
   return (
     <div className={cn("flex flex-col gap-6", className)}>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium">Sale type</legend>
+        <div
+          role="group"
+          aria-label="Sale type"
+          className="grid grid-cols-3 gap-1 rounded-lg border border-border p-1"
+        >
+          {SALE_TYPE_OPTIONS.map((option) => {
+            const active = filters.saleType === option.value;
+            const count = saleCounts?.[option.value ?? "all"];
+            return (
+              <Button
+                key={option.label}
+                type="button"
+                variant={active ? "secondary" : "ghost"}
+                size="sm"
+                aria-pressed={active}
+                onClick={() => onPatch({ saleType: option.value })}
+              >
+                <span className="tnum">
+                  {count !== undefined
+                    ? `${option.label} (${count})`
+                    : option.label}
+                </span>
+              </Button>
+            );
+          })}
+        </div>
+      </fieldset>
+
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Application status</legend>
         <div

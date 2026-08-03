@@ -18,10 +18,15 @@ import {
   DEFAULT_FILTERS,
   type ExplorerFilters,
   type ExplorerSort,
+  type SaleCounts,
   type StatusCounts,
 } from "@/components/explore/filter-model";
 import { EmptyState } from "@/components/empty-state";
-import { ProjectCard, type ProjectSummary } from "@/components/project-card";
+import {
+  ProjectCard,
+  shortExerciseLabel,
+  type ProjectSummary,
+} from "@/components/project-card";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -58,9 +63,18 @@ const SORT_ITEMS: { value: ExplorerSort; label: string }[] = [
 ];
 
 function fromPriceOf(summary: ProjectSummary): number | null {
-  return summary.flatTypes.length
-    ? Math.min(...summary.flatTypes.map((f) => f.minPrice))
-    : null;
+  if (!summary.flatTypes.length) return null;
+  const min = Math.min(...summary.flatTypes.map((f) => f.minPrice));
+  // 0 means "price TBC" — unknown, not free. Sorts with the unknowns (last).
+  return min > 0 ? min : null;
+}
+
+/** Wait-sort key: 0 means "TBC" for announced projects (sort last) but a
+ *  genuinely short wait for SBF pools, where flats exist already. */
+function waitSortKeyOf(summary: ProjectSummary): number {
+  const wait = summary.project.estimatedWaitMonths;
+  if (wait > 0) return wait;
+  return summary.project.saleType === "sbf" ? 0 : Infinity;
 }
 
 function CardSkeleton() {
@@ -149,13 +163,14 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const results = useQuery(api.projects.list, queryArgs);
 
-  // Status is a client-side UI filter (it depends on "today"), so it narrows
-  // here rather than in the Convex query — same mechanism as multi-select
-  // classification. Counts ignore the status filter itself so each segmented
-  // option shows what it would match.
+  // Status and sale type are client-side UI filters (status depends on
+  // "today"; sale-type counts must reflect every other filter), so they
+  // narrow here rather than in the Convex query — same mechanism as
+  // multi-select classification. Counts ignore their own filter so each
+  // segmented option shows what it would match.
   const today = todayIso();
 
-  const statusBase = useMemo(() => {
+  const classificationBase = useMemo(() => {
     if (results === undefined) return undefined;
     return filters.classifications.length > 1
       ? results.filter((r) =>
@@ -163,6 +178,24 @@ export function Explorer({ initialParams }: ExplorerProps) {
         )
       : results;
   }, [results, filters.classifications]);
+
+  const saleCounts = useMemo<SaleCounts | undefined>(() => {
+    if (classificationBase === undefined) return undefined;
+    const counts: SaleCounts = { all: classificationBase.length, bto: 0, sbf: 0 };
+    for (const r of classificationBase) {
+      counts[r.project.saleType ?? "bto"] += 1;
+    }
+    return counts;
+  }, [classificationBase]);
+
+  const statusBase = useMemo(() => {
+    if (classificationBase === undefined) return undefined;
+    return filters.saleType
+      ? classificationBase.filter(
+          (r) => (r.project.saleType ?? "bto") === filters.saleType,
+        )
+      : classificationBase;
+  }, [classificationBase, filters.saleType]);
 
   const statusCounts = useMemo<StatusCounts | undefined>(() => {
     if (statusBase === undefined) return undefined;
@@ -189,13 +222,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
     );
     switch (sort) {
       case "wait":
-        // 0 means "timeline TBC" (announced projects) — sort unknowns last,
-        // never first as a misleadingly short wait.
-        narrowed.sort(
-          (a, b) =>
-            (a.project.estimatedWaitMonths || Infinity) -
-            (b.project.estimatedWaitMonths || Infinity),
-        );
+        // Unknown waits sort last, never first as a misleadingly short wait.
+        narrowed.sort((a, b) => waitSortKeyOf(a) - waitSortKeyOf(b));
         break;
       case "name":
         narrowed.sort((a, b) => a.project.name.localeCompare(b.project.name));
@@ -210,17 +238,29 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const mapItems = useMemo(
     () =>
-      (visible ?? []).map(({ project, town, flatTypes }) => ({
-        slug: project.slug,
-        name: project.name,
-        lat: project.lat,
-        lng: project.lng,
-        lifecycleStatus: project.lifecycleStatus,
-        fromPrice: flatTypes.length
+      (visible ?? []).map(({ project, town, flatTypes, exerciseLabel }) => {
+        const minPrice = flatTypes.length
           ? Math.min(...flatTypes.map((f) => f.minPrice))
-          : null,
-        townName: town?.name,
-      })),
+          : null;
+        return {
+          slug: project.slug,
+          name: project.name,
+          lat: project.lat,
+          lng: project.lng,
+          lifecycleStatus: project.lifecycleStatus,
+          saleType: project.saleType,
+          totalUnits: project.totalUnits,
+          // Pool names carry no exercise, so the popup needs it to tell
+          // same-town pools from different years apart.
+          exerciseLabel: exerciseLabel
+            ? shortExerciseLabel(exerciseLabel)
+            : null,
+          // 0 means "price TBC" (announced projects, SBF pools) — never
+          // hand the popup a $0 to format.
+          fromPrice: minPrice !== null && minPrice > 0 ? minPrice : null,
+          townName: town?.name,
+        };
+      }),
     [visible],
   );
 
@@ -278,6 +318,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
                 onPatch={patch}
                 onReset={reset}
                 statusCounts={statusCounts}
+                saleCounts={saleCounts}
               />
             </div>
             <div className="sticky bottom-0 border-t border-border bg-popover p-4">
@@ -431,6 +472,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
           onPatch={patch}
           onReset={reset}
           statusCounts={statusCounts}
+          saleCounts={saleCounts}
         />
       </aside>
 

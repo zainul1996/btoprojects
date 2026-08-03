@@ -34,6 +34,8 @@ export interface TurnCorpus {
   ranked: boolean;
   /** Deterministic replacement answer if post-stream verification fails. */
   fallbackText: string | null;
+  /** True once listExercises has run (the next-SBF question is answerable). */
+  calendarChecked: boolean;
 }
 
 export function createTurnCorpus(): TurnCorpus {
@@ -43,6 +45,7 @@ export function createTurnCorpus(): TurnCorpus {
     months: new Set(),
     ranked: false,
     fallbackText: null,
+    calendarChecked: false,
   };
 }
 
@@ -54,15 +57,22 @@ export interface ToolProjectSummary {
   region: string;
   classification: string;
   lifecycle: string;
+  saleType: "bto" | "sbf";
   exerciseLabel: string | null;
   totalUnits: number;
   priceRange: { min: number; max: number } | null;
-  flatTypes: { type: string; units: number; minPrice: number; maxPrice: number }[];
+  // SBF pools have no published prices (TBC until launch): their price
+  // fields are null, never 0, so the model cannot mistake TBC for free.
+  flatTypes: { type: string; units: number; minPrice: number | null; maxPrice: number | null }[];
   estimatedWaitMonths: number | null;
   estimatedCompletion: string | null;
   applicationDeadline: string | null;
   nearestMrt: string[];
 }
+
+/** Model-facing explainer attached to any tool result containing SBF rows. */
+const SBF_RESULT_NOTE =
+  "SBF rows (saleType \"sbf\") are Sale of Balance Flats pools, sold by town and flat type; many flats are completed or near completion, so waits are short. Prices are null because SBF prices are only published at launch: never quote, estimate, or invent one. Unit counts are supply; per-flat-type applicant counts (from getProjectDetail) are demand.";
 
 function summarizeProject(
   project: Doc<"projects">,
@@ -71,9 +81,10 @@ function summarizeProject(
   exerciseLabel?: string | null,
 ): ToolProjectSummary {
   const announced = project.lifecycleStatus === "announced";
+  const saleType = project.saleType ?? "bto";
   const priced = flatTypes.filter((f) => f.minPrice > 0 || f.maxPrice > 0);
   const priceRange =
-    announced || priced.length === 0
+    announced || saleType === "sbf" || priced.length === 0
       ? null
       : {
           min: Math.min(...priced.map((f) => f.minPrice)),
@@ -86,17 +97,21 @@ function summarizeProject(
     region: town?.region ?? "",
     classification: project.classification,
     lifecycle: project.lifecycleStatus,
+    saleType,
     exerciseLabel: exerciseLabel ?? null,
     totalUnits: project.totalUnits,
     priceRange,
-    flatTypes: announced
-      ? flatTypes.map((f) => ({ type: f.type, units: f.units, minPrice: 0, maxPrice: 0 }))
-      : flatTypes.map((f) => ({
-          type: f.type,
-          units: f.units,
-          minPrice: f.minPrice,
-          maxPrice: f.maxPrice,
-        })),
+    flatTypes:
+      saleType === "sbf"
+        ? flatTypes.map((f) => ({ type: f.type, units: f.units, minPrice: null, maxPrice: null }))
+        : announced
+          ? flatTypes.map((f) => ({ type: f.type, units: f.units, minPrice: 0, maxPrice: 0 }))
+          : flatTypes.map((f) => ({
+              type: f.type,
+              units: f.units,
+              minPrice: f.minPrice,
+              maxPrice: f.maxPrice,
+            })),
     estimatedWaitMonths: announced ? null : project.estimatedWaitMonths,
     estimatedCompletion: announced ? null : project.estimatedCompletion,
     applicationDeadline: project.applicationDeadline ?? null,
@@ -107,8 +122,9 @@ function summarizeProject(
 function registerSummary(corpus: TurnCorpus, summary: ToolProjectSummary): void {
   corpus.slugs.add(summary.slug);
   for (const f of summary.flatTypes) {
-    if (f.minPrice > 0) corpus.amounts.add(f.minPrice);
-    if (f.maxPrice > 0) corpus.amounts.add(f.maxPrice);
+    // SBF rows register nothing: null prices stay out of the amount corpus.
+    if (f.minPrice !== null && f.minPrice > 0) corpus.amounts.add(f.minPrice);
+    if (f.maxPrice !== null && f.maxPrice > 0) corpus.amounts.add(f.maxPrice);
   }
   if (summary.estimatedWaitMonths !== null && summary.estimatedWaitMonths > 0) {
     corpus.months.add(summary.estimatedWaitMonths);
@@ -177,7 +193,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
 
   const searchProjects = tool({
     description:
-      "Filter the launch records. Use for factual questions: what is upcoming, what launched in a town or region, projects under a price, with a flat type, or by name. Announced projects (lifecycle 'announced') are officially confirmed for a future exercise but have no prices or timeline yet.",
+      "Filter the launch records: BTO launches and SBF balance-flat pools. Use for factual questions: what is upcoming, what launched in a town or region, projects under a price, with a flat type, or by name. Announced projects (lifecycle 'announced') are officially confirmed for a future exercise but have no prices or timeline yet. SBF pools have unit counts but no published prices.",
     inputSchema: z.object({
       town: z.string().optional().describe("Town name, e.g. Woodlands"),
       region: z.string().optional().describe("One of: North, North-East, Central, East, West"),
@@ -186,6 +202,10 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         .enum(["launched", "announced"])
         .optional()
         .describe("launched = past or open exercise; announced = confirmed for a future exercise"),
+      saleType: z
+        .enum(["bto", "sbf"])
+        .optional()
+        .describe("Filter by sale type. Omit to return BOTH BTO launches and SBF balance-flat pools."),
       flatType: z.string().optional().describe("e.g. 4-room"),
       maxPrice: z.number().optional().describe("Max starting price in SGD"),
       maxWaitMonths: z.number().optional(),
@@ -193,9 +213,15 @@ export function createPlannerTools(deps: PlannerToolDeps) {
       limit: z.number().min(1).max(12).optional(),
     }),
     execute: async (args) => {
+      const scopeLabel =
+        args.saleType === "sbf"
+          ? "Searching SBF balance-flat records"
+          : args.saleType === "bto"
+            ? "Searching BTO launch records"
+            : "Searching BTO and SBF records";
       phase(
         "searching",
-        `Searching the launch records${args.town ? ` in ${args.town}` : args.region ? ` in the ${args.region} region` : ""}`,
+        `${scopeLabel}${args.town ? ` in ${args.town}` : args.region ? ` in the ${args.region} region` : ""}`,
       );
       const summaries = await convex.query(api.projects.list, {
         region: args.region,
@@ -204,11 +230,24 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         flatType: args.flatType,
         maxPrice: args.maxPrice,
         maxWaitMonths: args.maxWaitMonths,
+        saleType: args.saleType,
         search: args.search,
       });
-      const filtered = args.lifecycle
+      const byLifecycle = args.lifecycle
         ? summaries.filter((s) => s.project.lifecycleStatus === args.lifecycle)
         : summaries;
+      // SBF prices are TBC until launch (stored as 0), so a pool can never
+      // honestly satisfy a price ceiling. The deployed query already excludes
+      // SBF when maxPrice is set; this client-side pass is belt-and-braces in
+      // case that filter ever regresses, and feeds the explanatory note.
+      const sbfExcludedByPrice =
+        args.maxPrice !== undefined
+          ? byLifecycle.filter((s) => (s.project.saleType ?? "bto") === "sbf").length
+          : 0;
+      const filtered =
+        args.maxPrice !== undefined
+          ? byLifecycle.filter((s) => (s.project.saleType ?? "bto") === "bto")
+          : byLifecycle;
       if (args.maxPrice !== undefined && args.maxPrice > 0) {
         corpus.amounts.add(args.maxPrice);
       }
@@ -217,10 +256,32 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         .slice(0, limit)
         .map((s) => summarizeProject(s.project, s.town, s.flatTypes));
       for (const p of projects) registerSummary(corpus, p);
+      const mix = {
+        bto: projects.filter((p) => p.saleType === "bto").length,
+        sbf: projects.filter((p) => p.saleType === "sbf").length,
+      };
+      if (mix.bto > 0 || mix.sbf > 0) {
+        const suggestions = buildSuggestions({
+          kind: "constraints",
+          constraints: null,
+          top: [],
+          saleTypes: mix,
+          calendarChecked: corpus.calendarChecked,
+        });
+        if (suggestions.length > 0) {
+          writer.write({ type: "data-suggestions", id: "suggestions", data: { suggestions } });
+        }
+      }
       return {
         total: filtered.length,
         returned: projects.length,
         projects,
+        ...(mix.sbf > 0 ? { sbfNote: SBF_RESULT_NOTE } : {}),
+        ...(sbfExcludedByPrice > 0
+          ? {
+              priceFilterNote: `${sbfExcludedByPrice} SBF pool(s) were excluded: SBF prices are only published at launch, so they cannot be filtered by budget. You may mention that pools exist, without prices.`,
+            }
+          : {}),
         ...(filtered.length === 0
           ? {
               note: "No projects match. Say so plainly and suggest widening the filters or setting an alert.",
@@ -232,7 +293,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
 
   const getProjectDetail = tool({
     description:
-      "Full details for one project by slug (from a previous tool result). Use when the user asks about a specific project.",
+      "Full details for one project or SBF town pool by slug (from a previous tool result). Use when the user asks about a specific project.",
     inputSchema: z.object({
       slug: z.string().describe("Project slug, e.g. sembawang-riverside"),
     }),
@@ -252,9 +313,55 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         details.exercise?.label ?? null,
       );
       registerSummary(corpus, summary);
+
+      // SBF demand lives in facts (flatType.<label>.applicants), and some
+      // offered labels exist only there (e.g. "Community Care Apartment").
+      // Merge them into the flat-type rows, mirroring the SBF board logic.
+      let sbfFlatTypes:
+        | { type: string; units: number; minPrice: null; maxPrice: null; applicants: number | null }[]
+        | undefined;
+      if (summary.saleType === "sbf") {
+        const byLabel = new Map<string, { units: number; applicants: number | null }>();
+        for (const f of summary.flatTypes) {
+          byLabel.set(f.type, { units: f.units, applicants: null });
+        }
+        for (const [field, facts] of Object.entries(details.facts)) {
+          const match = /^flatType\.(.+)\.(units|applicants)$/.exec(field);
+          const label = match?.[1];
+          const metric = match?.[2];
+          if (!label || !metric || facts.length === 0) continue;
+          const latest = facts.reduce((a, b) => (b.retrievedAt > a.retrievedAt ? b : a));
+          const value = Number(latest.value);
+          if (!Number.isFinite(value)) continue;
+          const entry = byLabel.get(label) ?? { units: 0, applicants: null };
+          if (metric === "units" && !byLabel.has(label)) entry.units = value;
+          if (metric === "applicants") entry.applicants = value;
+          byLabel.set(label, entry);
+        }
+        sbfFlatTypes = [...byLabel.entries()].map(([type, entry]) => ({
+          type,
+          units: entry.units,
+          minPrice: null,
+          maxPrice: null,
+          applicants: entry.applicants,
+        }));
+        if (!corpus.calendarChecked) {
+          const suggestions = buildSuggestions({
+            kind: "constraints",
+            constraints: null,
+            top: [],
+            saleTypes: { bto: 0, sbf: 1 },
+          });
+          if (suggestions.length > 0) {
+            writer.write({ type: "data-suggestions", id: "suggestions", data: { suggestions } });
+          }
+        }
+      }
+
       return {
         found: true,
         ...summary,
+        ...(sbfFlatTypes ? { flatTypes: sbfFlatTypes, sbfNote: SBF_RESULT_NOTE } : {}),
         description: details.project.description ?? null,
         notes: details.project.notes ?? null,
         exerciseStatus: details.exercise?.status ?? null,
@@ -265,7 +372,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
 
   const rankProjectsTool = tool({
     description:
-      "Personalized recommendation: scores every launchable project against the buyer's constraints (deterministic, not your judgement) and returns the top 5 with reasons. Use whenever the user asks what is best for them, compares options, or gives a budget/wait/town profile. Fields not mentioned stay unset.",
+      "Personalized recommendation: scores every launchable BTO project against the buyer's constraints (deterministic, not your judgement) and returns the top 5 with reasons. SBF pools are excluded because their prices are unpublished. Use whenever the user asks what is best for them, compares options, or gives a budget/wait/town profile. Fields not mentioned stay unset.",
     inputSchema: z.object({
       budgetMax: z.number().optional().describe("Max affordable price in SGD"),
       waitToleranceMonths: z.number().optional().describe("Max months the buyer can wait for keys"),
@@ -463,15 +570,17 @@ export function createPlannerTools(deps: PlannerToolDeps) {
 
   const listExercises = tool({
     description:
-      "The BTO launch calendar: past, open, and announced sales exercises with application windows. Use for 'when is the next launch', deadlines, or which exercise a project belongs to.",
+      "The launch calendar: past, open, and announced BTO and SBF sales exercises with application windows. Use for 'when is the next launch' (BTO or SBF), deadlines, or which exercise a project belongs to. Each exercise carries a type ('bto' or 'sbf').",
     inputSchema: z.object({}),
     execute: async () => {
-      phase("calendar", "Checking the launch calendar");
+      phase("calendar", "Checking the launch calendar (BTO and SBF)");
+      corpus.calendarChecked = true;
       const exercises = await convex.query(api.exercises.list, {});
       return {
         exercises: exercises.map(({ exercise, projectCount }) => ({
           key: exercise.key,
           label: exercise.label,
+          type: exercise.type,
           status: exercise.status,
           applicationEnd: exercise.applicationEnd ?? null,
           projectCount,
@@ -482,7 +591,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
 
   const getTownOverview = tool({
     description:
-      "Everything we know about one town: its projects (launched and announced) plus recent resale medians. Use for 'tell me about Woodlands' style questions.",
+      "Everything we know about one town: its projects (BTO launches and SBF pools, launched and announced) plus recent resale medians. Use for 'tell me about Woodlands' style questions.",
     inputSchema: z.object({
       town: z.string().describe("Town name, e.g. Woodlands"),
     }),
@@ -502,6 +611,22 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         summarizeProject(s.project, s.town, s.flatTypes),
       );
       for (const p of projects) registerSummary(corpus, p);
+      const mix = {
+        bto: projects.filter((p) => p.saleType === "bto").length,
+        sbf: projects.filter((p) => p.saleType === "sbf").length,
+      };
+      if (mix.bto > 0 || mix.sbf > 0) {
+        const suggestions = buildSuggestions({
+          kind: "constraints",
+          constraints: null,
+          top: [],
+          saleTypes: mix,
+          calendarChecked: corpus.calendarChecked,
+        });
+        if (suggestions.length > 0) {
+          writer.write({ type: "data-suggestions", id: "suggestions", data: { suggestions } });
+        }
+      }
       const asOfMonth = deps.todayISO.slice(0, 7);
       const resale = await convex.query(api.resale.townMedian, {
         town: town.name,
@@ -514,6 +639,7 @@ export function createPlannerTools(deps: PlannerToolDeps) {
         town: town.name,
         region: town.region,
         projects,
+        ...(mix.sbf > 0 ? { sbfNote: SBF_RESULT_NOTE } : {}),
         resale12m: {
           count: resale.count,
           median: resale.median,

@@ -51,11 +51,19 @@ export const getByName = query({
       town,
       projects: await Promise.all(
         projects.map(async (project) => {
-          const flatTypes = await ctx.db
-            .query("flatTypes")
-            .withIndex("by_project", (q) => q.eq("projectId", project._id))
-            .collect();
-          return { project, town, flatTypes };
+          const [flatTypes, exercise] = await Promise.all([
+            ctx.db
+              .query("flatTypes")
+              .withIndex("by_project", (q) => q.eq("projectId", project._id))
+              .collect(),
+            ctx.db.get("exercises", project.exerciseId),
+          ]);
+          return {
+            project,
+            town,
+            flatTypes,
+            exerciseLabel: exercise?.label ?? null,
+          };
         }),
       ),
     };
