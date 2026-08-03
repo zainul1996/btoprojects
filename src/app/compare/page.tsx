@@ -6,9 +6,9 @@ import { CompareWorkspace } from "@/components/compare/compare-workspace";
 import { PageHeader } from "@/components/page-header";
 
 export const metadata: Metadata = {
-  title: "Compare BTO projects",
+  title: "Compare BTO and SBF options",
   description:
-    "Side-by-side comparison of Singapore HDB BTO projects: price, wait, location, restrictions and what you give up.",
+    "Compare Singapore HDB BTO projects and SBF town pools side by side, with clear sale-type and data-availability context.",
 };
 
 export default async function ComparePage({
@@ -34,7 +34,7 @@ export default async function ComparePage({
     <div className="mx-auto max-w-7xl px-4 pb-24 md:px-6">
       <PageHeader
         title="Compare"
-        lede="Side by side: price, wait, location, restrictions, and what you give up."
+        lede="Compare BTO projects and SBF town pools across price, wait, location and restrictions."
       />
       <CompareWorkspace slugs={slugs} summaries={summaries} />
     </div>

@@ -98,7 +98,7 @@ export function AlertsTab({ ready }: { ready: boolean }) {
         <EmptyState
           icon={Inbox}
           title="No alerts yet"
-          hint="When something you watch changes, it lands here first."
+          hint="Updates to projects, towns and stations you follow will appear here."
         />
       ) : (
         <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">

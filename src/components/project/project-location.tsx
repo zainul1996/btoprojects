@@ -67,7 +67,7 @@ export function ProjectLocation({ details }: { details: ProjectDetails }) {
                 render={<Link href={townHref(townName)} />}
                 className="h-7 px-3 text-sm"
               >
-                BTO in {townName}
+                {isSbf ? "SBF" : "BTO"} in {townName}
               </Badge>
             </div>
           ) : null}

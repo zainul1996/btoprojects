@@ -2,6 +2,8 @@
 
 import { SignInButton, useAuth } from "@clerk/nextjs";
 import { Bell } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
@@ -29,8 +31,8 @@ export function WatchlistClient({
     return (
       <EmptyState
         icon={Bell}
-        title="Sign in to watch places"
-        hint="Watching is how you get alerts when HDB updates a project, town or station you care about."
+        title="Sign in to save places"
+        hint="Following a project, town or station enables alerts when HDB publishes an update."
         action={
           <SignInButton mode="modal">
             <Button>Sign in</Button>
@@ -40,16 +42,27 @@ export function WatchlistClient({
     );
   }
 
-  return <AuthedWatchlist initialTab={initialTab} />;
+  return <AuthedWatchlist key={initialTab} initialTab={initialTab} />;
 }
 
 function AuthedWatchlist({ initialTab }: { initialTab: WatchlistTab }) {
   const ready = useAuthedUser();
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<WatchlistTab>(initialTab);
+
+  const selectTab = (value: string) => {
+    const nextTab: WatchlistTab = value === "alerts" ? "alerts" : "watching";
+    setActiveTab(nextTab);
+    router.replace(
+      nextTab === "alerts" ? "/watchlist?tab=alerts" : "/watchlist",
+      { scroll: false },
+    );
+  };
 
   return (
-    <Tabs defaultValue={initialTab}>
+    <Tabs value={activeTab} onValueChange={selectTab}>
       <TabsList>
-        <TabsTrigger value="watching">Watching</TabsTrigger>
+        <TabsTrigger value="watching">Following</TabsTrigger>
         <TabsTrigger value="alerts">Alerts</TabsTrigger>
       </TabsList>
       <TabsContent value="watching" className="pt-5">

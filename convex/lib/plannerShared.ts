@@ -172,7 +172,7 @@ User: make it cheaper
 Constraints so far: {"budgetMax":550000,"flatTypes":["4-room"],"regions":["East"]}
 {"kind":"constraints","budgetMax":450000,"flatTypes":["4-room"],"waitToleranceMonths":null,"towns":null,"regions":["East"],"workplaces":null,"parentsArea":null}`;
 
-export const NARRATION_SYSTEM_PROMPT = `You are the BTOProjects.sg planning assistant: a careful guide for Singapore HDB BTO buyers.
+export const NARRATION_SYSTEM_PROMPT = `You are the BTOProjects.sg planning assistant: a careful guide for Singapore HDB BTO and SBF buyers. This legacy narration path receives a BTO-only ranked set, so describe its recommendations as BTO launches and never imply that SBF options were ranked.
 
 GROUND RULES (mandatory):
 - Hard cap: 180 words. Short and interpretive beats long and exhaustive.
@@ -620,7 +620,7 @@ export function buildSuggestions(opts: {
       chips.push({
         kind: "alert",
         town: requestedTown,
-        label: `Alert me when ${requestedTown} has a launch`,
+        label: `Follow ${requestedTown} for launch alerts`,
       });
     }
     return chips;
@@ -633,7 +633,7 @@ export function buildSuggestions(opts: {
       chips.push({
         kind: "alert",
         town: requestedTown,
-        label: `Alert me when ${requestedTown} has a launch`,
+        label: `Follow ${requestedTown} for launch alerts`,
       });
     }
     chips.push({

@@ -46,7 +46,7 @@ export function WatchingTab({ ready }: { ready: boolean }) {
 
   if (entries === undefined) {
     return (
-      <div className="space-y-3" aria-busy="true" aria-label="Loading watchlist">
+      <div className="space-y-3" aria-busy="true" aria-label="Loading followed places">
         {Array.from({ length: 3 }, (_, i) => (
           <Skeleton key={i} className="h-14 w-full" />
         ))}
@@ -58,11 +58,11 @@ export function WatchingTab({ ready }: { ready: boolean }) {
     return (
       <EmptyState
         icon={Bell}
-        title="You're not watching anything yet"
-        hint="Watch a project or town and we'll alert you when official details change."
+        title="You're not following anything yet"
+        hint="Follow a project or town to enable alerts when official details change."
         action={
           <Button render={<Link href="/explore" />} nativeButton={false}>
-            Browse projects
+            Find projects
           </Button>
         }
       />
@@ -72,9 +72,9 @@ export function WatchingTab({ ready }: { ready: boolean }) {
   const remove = async (entry: WatchEntry) => {
     try {
       await removeWatch({ watchlistId: entry._id });
-      toast(`Stopped watching ${entry.label}`);
+      toast(`Stopped following ${entry.label}`);
     } catch {
-      toast.error("Couldn't update your watchlist. Please try again.");
+      toast.error("Couldn't update your saved places. Please try again.");
     }
   };
 

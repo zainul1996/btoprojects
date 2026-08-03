@@ -14,19 +14,66 @@ import { WatchButton } from "@/components/watch-button";
 
 type Props = { params: Promise<{ town: string }> };
 
+function townHeading(name: string, btoCount: number, sbfCount: number): string {
+  if (btoCount > 0 && sbfCount > 0) return `BTO and SBF in ${name}`;
+  if (btoCount > 0) return `BTO projects in ${name}`;
+  if (sbfCount > 0) return `SBF in ${name}`;
+  return `Projects in ${name}`;
+}
+
+function townDescription(
+  name: string,
+  btoCount: number,
+  sbfCount: number,
+): string {
+  if (btoCount > 0 && sbfCount > 0) {
+    return `BTO projects and Sale of Balance Flats pools tracked in ${name}, with official details and a full source trail.`;
+  }
+  if (btoCount > 0) {
+    return `BTO projects tracked in ${name}, with official details and a full source trail.`;
+  }
+  if (sbfCount > 0) {
+    return `Sale of Balance Flats pools tracked in ${name}, with official details and a full source trail.`;
+  }
+  return `No BTO projects or Sale of Balance Flats pools are currently tracked in ${name}.`;
+}
+
+function townCountLabel(btoCount: number, sbfCount: number): string {
+  if (btoCount > 0 && sbfCount > 0) {
+    return `${btoCount} BTO project${btoCount === 1 ? "" : "s"} · ${sbfCount} SBF pool${sbfCount === 1 ? "" : "s"}`;
+  }
+  if (btoCount > 0) {
+    return `${btoCount} BTO project${btoCount === 1 ? "" : "s"}`;
+  }
+  if (sbfCount > 0) {
+    return `${sbfCount} SBF pool${sbfCount === 1 ? "" : "s"}`;
+  }
+  return "No tracked projects or pools";
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { town: param } = await params;
   const townName = decodeTownParam(param);
-  const { town } = await fetchQuery(api.projects.listByTown, { townName });
+  const { town, projects } = await fetchQuery(api.projects.listByTown, {
+    townName,
+  });
   const resolved = town?.name ?? townName;
+  const btoCount = projects.filter(
+    (summary) => (summary.project.saleType ?? "bto") === "bto",
+  ).length;
+  const sbfCount = projects.filter(
+    (summary) => summary.project.saleType === "sbf",
+  ).length;
+  const heading = townHeading(resolved, btoCount, sbfCount);
+  const description = townDescription(resolved, btoCount, sbfCount);
   return {
     metadataBase: new URL("https://btoprojects.sg"),
-    title: `BTO in ${resolved} | BTOProjects.sg`,
-    description: `Every BTO project we track in ${resolved}: official prices, flat mix, waiting times and a full source trail.`,
+    title: `${heading} | BTOProjects.sg`,
+    description,
     alternates: { canonical: `/bto/town/${param.toLowerCase()}` },
     openGraph: {
-      title: `BTO in ${resolved} | BTOProjects.sg`,
-      description: `Every BTO project we track in ${resolved}, with provenance on every fact.`,
+      title: `${heading} | BTOProjects.sg`,
+      description,
       url: `/bto/town/${param.toLowerCase()}`,
       type: "website",
     },
@@ -46,6 +93,11 @@ export default async function TownPage({ params }: Props) {
     (s) => (s.project.saleType ?? "bto") === "bto",
   );
   const sbfProjects = projects.filter((s) => s.project.saleType === "sbf");
+  const heading = townHeading(
+    resolvedName,
+    btoProjects.length,
+    sbfProjects.length,
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 pb-16 md:px-6">
@@ -61,16 +113,14 @@ export default async function TownPage({ params }: Props) {
 
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="min-w-0 space-y-2.5">
-            <h1>BTO in {resolvedName}</h1>
+            <h1>{heading}</h1>
             <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="font-medium">
                 {town?.region ?? "Singapore"}
               </Badge>
-              {town ? (
-                <span className="text-sm text-muted-foreground">
-                  {projects.length} tracked project{projects.length === 1 ? "" : "s"}
-                </span>
-              ) : null}
+              <span className="text-sm text-muted-foreground">
+                {townCountLabel(btoProjects.length, sbfProjects.length)}
+              </span>
             </div>
           </div>
           <WatchButton
@@ -104,34 +154,34 @@ export default async function TownPage({ params }: Props) {
         />
       ) : (
         <>
-            {btoProjects.length > 0 ? (
-              <Section title={`Projects in ${resolvedName}`}>
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {btoProjects.map((summary) => (
-                    <ProjectCard key={summary.project._id} summary={summary} />
-                  ))}
-                </div>
-              </Section>
-            ) : null}
+          {btoProjects.length > 0 ? (
+            <Section title={`BTO projects in ${resolvedName}`}>
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {btoProjects.map((summary) => (
+                  <ProjectCard key={summary.project._id} summary={summary} />
+                ))}
+              </div>
+            </Section>
+          ) : null}
 
-            {sbfProjects.length > 0 ? (
-              <Section
-                title="Balance flats (SBF)"
-                description="Sold by town and flat type, not by project. Many are completed or near completion."
-              >
-                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                  {sbfProjects.map((summary) => (
-                    <SbfPoolCard
-                      key={summary.project._id}
-                      summary={summary}
-                      exerciseLabel={summary.exerciseLabel ?? undefined}
-                    />
-                  ))}
-                </div>
-              </Section>
-            ) : null}
-          </>
-        )}
+          {sbfProjects.length > 0 ? (
+            <Section
+              title="Balance flats (SBF)"
+              description="Sold by town and flat type, not by project. Many are completed or near completion."
+            >
+              <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {sbfProjects.map((summary) => (
+                  <SbfPoolCard
+                    key={summary.project._id}
+                    summary={summary}
+                    exerciseLabel={summary.exerciseLabel ?? undefined}
+                  />
+                ))}
+              </div>
+            </Section>
+          ) : null}
+        </>
+      )}
     </div>
   );
 }

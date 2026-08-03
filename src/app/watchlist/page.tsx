@@ -5,9 +5,9 @@ import { PageHeader } from "@/components/page-header";
 import { WatchlistClient } from "@/components/watchlist/watchlist-client";
 
 export const metadata: Metadata = {
-  title: "Watchlist and alerts",
+  title: "Saved & alerts",
   description:
-    "Projects, towns and MRT stations you're watching on BTOProjects.sg, plus every alert they've triggered.",
+    "Projects, towns and MRT stations you follow on BTOProjects.sg, plus the alerts they trigger.",
 };
 
 export default async function WatchlistPage({
@@ -24,8 +24,8 @@ export default async function WatchlistPage({
   return (
     <div className="mx-auto max-w-3xl px-4 pb-24 md:px-6">
       <PageHeader
-        title="Watchlist"
-        lede="Places you're watching, and the alerts they've triggered."
+        title="Saved & alerts"
+        lede="Follow projects, towns or MRT stations to receive official-update alerts."
       />
       <WatchlistClient initialTab={initialTab} signedIn={userId !== null} />
     </div>

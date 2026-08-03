@@ -10,9 +10,16 @@ import { useCompare } from "@/components/compare-tray";
 import { PageHeader } from "@/components/page-header";
 import { usePlannerChat } from "@/components/planner/planner-chat-provider";
 import { PlannerMarkdown } from "@/components/planner/planner-markdown";
-import { RankingCard } from "@/components/planner/ranking-card";
+import {
+  RankingCard,
+  type PlannerConstraints,
+} from "@/components/planner/ranking-card";
+import { SourceBadge } from "@/components/source-badge";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
+import { WatchButton } from "@/components/watch-button";
 import {
   MAX_STORED_MESSAGES,
   clearStoredChat,
@@ -76,7 +83,63 @@ function WorkingDots() {
   );
 }
 
-export function PlannerChat() {
+function constraintLabels(constraints: NonNullable<PlannerConstraints>): string[] {
+  const labels: string[] = [];
+  if (constraints.budgetMax) {
+    labels.push(`Budget ≤ S$${constraints.budgetMax.toLocaleString("en-SG")}`);
+  }
+  if (constraints.flatTypes?.length) labels.push(constraints.flatTypes.join(", "));
+  if (constraints.waitToleranceMonths) {
+    labels.push(`Wait ≤ ${constraints.waitToleranceMonths} months`);
+  }
+  if (constraints.towns?.length) labels.push(constraints.towns.join(", "));
+  if (constraints.regions?.length) {
+    labels.push(`${constraints.regions.join(", ")} region`);
+  }
+  if (constraints.workplaces?.length) {
+    labels.push(`Work: ${constraints.workplaces.join(", ")}`);
+  }
+  if (constraints.parentsArea) {
+    labels.push(`Parents: ${constraints.parentsArea}`);
+  }
+  return labels;
+}
+
+function InterpretedConstraints({
+  constraints,
+}: {
+  constraints: NonNullable<PlannerConstraints>;
+}) {
+  const labels = constraintLabels(constraints);
+  if (labels.length === 0) return null;
+
+  return (
+    <aside aria-label="Interpreted planning constraints" className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <h2 className="text-xs font-semibold tracking-wide text-muted-foreground uppercase">
+          You said
+        </h2>
+        <SourceBadge variant="analysis" size="sm" />
+      </div>
+      <div className="flex flex-wrap gap-1.5">
+        {labels.map((label) => (
+          <Badge key={label} variant="secondary" className="font-normal">
+            {label}
+          </Badge>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Reply with a correction to update these constraints.
+      </p>
+    </aside>
+  );
+}
+
+export function PlannerChat({
+  suggestedPrompt,
+}: {
+  suggestedPrompt?: string;
+}) {
   const { slugs: traySlugs } = useCompare();
   const {
     messages,
@@ -95,11 +158,27 @@ export function PlannerChat() {
     input,
     setInput,
     hydrated,
-    authed,
     constraintsRef,
   } = usePlannerChat();
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const appliedPromptRef = useRef<string | undefined>(undefined);
+
+  // Context links suggest a starting point without submitting it. Restored
+  // drafts and conversations always win over a URL-provided suggestion.
+  useEffect(() => {
+    if (
+      !hydrated ||
+      !suggestedPrompt ||
+      appliedPromptRef.current === suggestedPrompt
+    ) {
+      return;
+    }
+    appliedPromptRef.current = suggestedPrompt;
+    if (messages.length === 0 && input.trim().length === 0) {
+      setInput(suggestedPrompt);
+    }
+  }, [hydrated, input, messages.length, setInput, suggestedPrompt]);
 
   // Streaming updates messages per token, so writes are throttled: at most
   // one write per interval, with a trailing write for the latest state. The
@@ -219,8 +298,23 @@ export function PlannerChat() {
               <div>
                 <PageHeader
                   title="The planner"
-                  lede="Tell me your budget, flat type and how long you can wait. I'll rank every launch against it and show the workings."
+                  lede="Ask about BTO and SBF options, or share your budget and wait tolerance for a cited BTO ranking."
                 />
+                {suggestedPrompt &&
+                (input.trim().length === 0 || input === suggestedPrompt) ? (
+                  <Card size="sm" className="mb-4 bg-teal-subtle/30">
+                    <CardContent>
+                      <p className="text-xs font-medium text-teal-deeper">
+                        Suggested starting point
+                      </p>
+                      <p className="mt-1 text-sm text-ink">{suggestedPrompt}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        It&apos;s in the message box for you to edit. Nothing
+                        has been sent.
+                      </p>
+                    </CardContent>
+                  </Card>
+                ) : null}
                 <div className="flex flex-col gap-2">
                   {EXAMPLE_PROMPTS.map((prompt) => (
                     <button
@@ -234,9 +328,21 @@ export function PlannerChat() {
                   ))}
                 </div>
                 <p className="mt-6 text-sm text-muted-foreground">
-                  I answer from the project database and cite every fact. If
-                  something&apos;s missing or stale, I&apos;ll say so.
+                  AI analysis is based on the project database and cites every
+                  project fact. Search covers BTO and SBF; personalised ranking
+                  currently covers BTO launches only.
                 </p>
+                <nav
+                  aria-label="Other project tools"
+                  className="mt-3 flex flex-wrap gap-x-3 text-sm"
+                >
+                  <Link href="/explore" className="text-teal-deep hover:underline">
+                    Find projects
+                  </Link>
+                  <Link href="/compare" className="text-teal-deep hover:underline">
+                    Compare shortlist
+                  </Link>
+                </nav>
               </div>
             ) : (
               <div
@@ -245,6 +351,9 @@ export function PlannerChat() {
                 aria-label="Planner conversation"
                 className="flex flex-col gap-6 pt-8"
               >
+                {constraints ? (
+                  <InterpretedConstraints constraints={constraints} />
+                ) : null}
                 {messages.map((message, index) =>
                   message.role === "user" ? (
                     <div key={message.id} className="flex justify-end">
@@ -259,7 +368,6 @@ export function PlannerChat() {
                       streaming={
                         status === "streaming" && index === messages.length - 1
                       }
-                      authed={authed}
                       onReply={send}
                     />
                   ),
@@ -394,12 +502,10 @@ export function PlannerChat() {
 function AssistantTurn({
   message,
   streaming,
-  authed,
   onReply,
 }: {
   message: PlannerUIMessage;
   streaming: boolean;
-  authed: boolean;
   onReply: (text: string) => void;
 }) {
   const text = textOf(message);
@@ -445,7 +551,8 @@ function AssistantTurn({
       )}
       {showRankings && rankingsData?.totalProjects !== undefined && (
         <p className="tnum text-xs text-muted-foreground">
-          Ranked from {rankingsData.totalProjects} tracked launches
+          AI analysis · Ranked from {rankingsData.totalProjects} tracked BTO
+          launches
           {dataAsOf ? ` · data as of ${dataAsOf}` : ""}
         </p>
       )}
@@ -459,7 +566,6 @@ function AssistantTurn({
             <SuggestionChip
               key={suggestion.label}
               suggestion={suggestion}
-              authed={authed}
               onReply={onReply}
             />
           ))}
@@ -477,27 +583,22 @@ const SUGGESTION_CHIP_CLASS =
 
 function SuggestionChip({
   suggestion,
-  authed,
   onReply,
 }: {
   suggestion: PlannerSuggestion;
-  authed: boolean;
   onReply: (text: string) => void;
 }) {
   if (suggestion.kind === "alert") {
-    if (!authed) {
-      return (
-        <SignInButton mode="modal">
-          <button type="button" className={SUGGESTION_CHIP_CLASS}>
-            {suggestion.label}
-          </button>
-        </SignInButton>
-      );
-    }
+    if (!suggestion.town) return null;
     return (
-      <Link href="/watchlist" className={SUGGESTION_CHIP_CLASS}>
-        {suggestion.label}
-      </Link>
+      <div className="flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface px-3.5 py-2">
+        <span className="text-sm text-ink">{suggestion.label}</span>
+        <WatchButton
+          targetType="town"
+          targetId={suggestion.town}
+          label={suggestion.town}
+        />
+      </div>
     );
   }
 

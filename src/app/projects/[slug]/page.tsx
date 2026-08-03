@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { fetchQuery } from "convex/nextjs";
-import { Info } from "lucide-react";
+import { Info, Sparkles } from "lucide-react";
 
 import { api } from "../../../../convex/_generated/api";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
@@ -18,6 +18,7 @@ import { SbfAvailability } from "@/components/project/sbf-availability";
 import { SourceLog } from "@/components/project/source-log";
 import { Section } from "@/components/section";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { WatchButton } from "@/components/watch-button";
 
@@ -69,6 +70,7 @@ export default async function ProjectPage({ params }: Props) {
   const townName = town?.name ?? project.region;
   const isAnnounced = project.lifecycleStatus === "announced";
   const isSbf = project.saleType === "sbf";
+  const plannerPrompt = `What should I know about ${project.name} (${isSbf ? "SBF" : "BTO"})? Explain the fit, trade-offs and any missing data.`;
 
   // Announced and SBF rows have no usable prices to compare against (0 =
   // TBC) — skip the fetch and the resale section entirely for SBF pools.
@@ -114,7 +116,19 @@ export default async function ProjectPage({ params }: Props) {
               {exercise ? ` · ${exercise.label}` : ""}
             </p>
             <div className="flex flex-wrap items-center gap-2">
-              <LifecycleChip stage={isSbf ? "sbf" : project.lifecycleStatus} />
+              <Badge
+                variant="outline"
+                className={
+                  isSbf
+                    ? "border-teal-deep/25 bg-teal-subtle font-medium text-teal-deeper"
+                    : "font-medium text-muted-foreground"
+                }
+              >
+                {isSbf ? "SBF" : "BTO"}
+              </Badge>
+              {!isSbf ? (
+                <LifecycleChip stage={project.lifecycleStatus} />
+              ) : null}
               {project.classification !== "Unclassified" ? (
                 <Badge variant="outline" className="font-medium">
                   {project.classification}
@@ -122,7 +136,7 @@ export default async function ProjectPage({ params }: Props) {
               ) : null}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex flex-wrap items-center justify-end gap-2">
             <WatchButton
               targetType="project"
               targetId={project.slug}
@@ -130,6 +144,17 @@ export default async function ProjectPage({ params }: Props) {
               size="default"
             />
             <AddToCompareButton slug={project.slug} size="default" />
+            <Button
+              render={
+                <Link
+                  href={`/planner?prompt=${encodeURIComponent(plannerPrompt)}`}
+                />
+              }
+              nativeButton={false}
+            >
+              <Sparkles aria-hidden />
+              Ask AI about this
+            </Button>
           </div>
         </div>
 

@@ -36,7 +36,7 @@ function fromPriceOf(summary: ProjectSummary): number | null {
 
 /** Honest cell for figures that exist but are not in our data (SBF prices). */
 function Tbc() {
-  return <span className="text-muted-foreground">TBC</span>;
+  return <span className="text-muted-foreground">Not in our data</span>;
 }
 
 function mrtWalkOf(summary: ProjectSummary): number | null {
@@ -320,7 +320,7 @@ export function CompareWorkspace({
         hint="Add projects with the Compare button on any project card."
         action={
           <Button render={<Link href="/explore" />} nativeButton={false}>
-            Browse projects
+            Find projects
           </Button>
         }
       />
@@ -370,16 +370,33 @@ export function CompareWorkspace({
           hint="Add projects with the Compare button on any project card."
           action={
             <Button render={<Link href="/explore" />} nativeButton={false}>
-              Browse projects
+              Find projects
             </Button>
           }
         />
       ) : (
         <>
           {found.length === 1 && (
-            <p className="mb-4 rounded-lg bg-teal-subtle/50 px-4 py-3 text-sm text-teal-deeper">
-              Add at least one more project to compare. Use the Compare button
-              on any project card.
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-teal-subtle/50 px-4 py-3 text-sm text-teal-deeper">
+              <p>Add one more option to see meaningful differences.</p>
+              <Button
+                variant="outline"
+                size="sm"
+                render={<Link href="/explore" />}
+                nativeButton={false}
+              >
+                Find projects
+              </Button>
+            </div>
+          )}
+          {found.some((summary) => summary.project.saleType === "sbf") && (
+            <p
+              role="note"
+              className="mb-4 rounded-lg border border-border bg-muted/40 px-4 py-3 text-sm text-muted-foreground"
+            >
+              SBF prices vary by individual flat and are not held in our data,
+              so direct price comparison with BTO is unavailable. Missing
+              prices are excluded from highlights and trade-off analysis.
             </p>
           )}
           <CompareTable projects={found} onRemove={removeSlug} />
@@ -398,6 +415,14 @@ function CompareTable({
 }) {
   const best = bestByRow(projects);
   const giveUps = computeGiveUps(projects);
+  const hasBto = projects.some((summary) => summary.project.saleType !== "sbf");
+  const hasSbf = projects.some((summary) => summary.project.saleType === "sbf");
+  const comparedKinds =
+    hasBto && hasSbf
+      ? "BTO projects and SBF town pools"
+      : hasSbf
+        ? "SBF town pools"
+        : "BTO projects";
 
   const firstColClass =
     "sticky left-0 z-10 w-44 min-w-44 bg-surface border-r border-border";
@@ -407,7 +432,7 @@ function CompareTable({
     <div className="max-h-[calc(100svh-7rem)] overflow-auto overscroll-contain rounded-xl border border-border bg-surface">
       <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
         <caption className="sr-only">
-          Side-by-side comparison of {projects.length} BTO projects
+          Side-by-side comparison of {projects.length} {comparedKinds}
         </caption>
         <thead>
           <tr>
@@ -438,10 +463,24 @@ function CompareTable({
                       {town?.name ?? project.region} · {project.region}
                     </p>
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <LifecycleChip stage={project.lifecycleStatus} />
-                      <Badge variant="outline" className="font-medium">
-                        {project.classification}
+                      <Badge
+                        variant="outline"
+                        className={
+                          project.saleType === "sbf"
+                            ? "border-teal-deep/25 bg-teal-subtle font-medium text-teal-deeper"
+                            : "font-medium text-muted-foreground"
+                        }
+                      >
+                        {project.saleType === "sbf" ? "SBF" : "BTO"}
                       </Badge>
+                      {project.saleType !== "sbf" ? (
+                        <LifecycleChip stage={project.lifecycleStatus} />
+                      ) : null}
+                      {project.classification !== "Unclassified" ? (
+                        <Badge variant="outline" className="font-medium">
+                          {project.classification}
+                        </Badge>
+                      ) : null}
                     </div>
                   </div>
                   <Button
