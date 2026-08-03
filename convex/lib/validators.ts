@@ -33,6 +33,7 @@ export const exerciseValidator = v.object({
   type: exerciseTypeValidator,
   status: exerciseStatusValidator,
   applicationEnd: v.optional(v.string()),
+  isEstimate: v.optional(v.boolean()),
 });
 
 export const projectValidator = v.object({

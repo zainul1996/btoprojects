@@ -576,7 +576,14 @@ export const upsertExercise = internalMutation({
       .withIndex("by_key", (q) => q.eq("key", args.key))
       .unique();
     if (existing) {
-      const patch: { applicationEnd?: string; status?: "open" | "closed" } = {};
+      const patch: {
+        applicationEnd?: string;
+        status?: "open" | "closed";
+        isEstimate?: false;
+      } = {};
+      if (existing.isEstimate === true) {
+        patch.isEstimate = false;
+      }
       if (!existing.applicationEnd && args.applicationEnd) {
         patch.applicationEnd = args.applicationEnd;
       }
@@ -585,7 +592,11 @@ export const upsertExercise = internalMutation({
       } else if (args.status === "open" && existing.status === "upcoming") {
         patch.status = "open";
       }
-      if (patch.applicationEnd !== undefined || patch.status !== undefined) {
+      if (
+        patch.applicationEnd !== undefined ||
+        patch.status !== undefined ||
+        patch.isEstimate !== undefined
+      ) {
         await ctx.db.patch("exercises", existing._id, patch);
       }
       return { id: existing._id, created: false };
@@ -595,6 +606,7 @@ export const upsertExercise = internalMutation({
       label: args.label,
       type: args.type,
       status: args.status,
+      isEstimate: false,
       ...(args.applicationEnd !== undefined
         ? { applicationEnd: args.applicationEnd }
         : {}),

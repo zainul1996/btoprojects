@@ -50,6 +50,16 @@ export const run = internalMutation({
         label: "February 2027 SBF",
         type: "sbf",
         status: "upcoming",
+        isEstimate: true,
+      });
+    } else if (
+      existingExercise &&
+      existingExercise.isEstimate === undefined &&
+      existingExercise.status === "upcoming" &&
+      existingExercise.applicationEnd === undefined
+    ) {
+      await ctx.db.patch("exercises", existingExercise._id, {
+        isEstimate: true,
       });
     }
 

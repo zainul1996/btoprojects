@@ -70,6 +70,9 @@ export default defineSchema({
     type: exerciseTypeValidator,
     status: exerciseStatusValidator,
     applicationEnd: v.optional(v.string()), // ISO date "YYYY-MM-DD"
+    // Cadence placeholders are never presented as official announcements.
+    // Official ingestion clears this flag when the exercise is discovered.
+    isEstimate: v.optional(v.boolean()),
   }).index("by_key", ["key"]),
 
   towns: defineTable({
