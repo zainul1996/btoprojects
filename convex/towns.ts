@@ -63,6 +63,8 @@ export const getByName = query({
             town,
             flatTypes,
             exerciseLabel: exercise?.label ?? null,
+            exerciseStatus: exercise?.status ?? null,
+            exerciseApplicationEnd: exercise?.applicationEnd ?? null,
           };
         }),
       ),

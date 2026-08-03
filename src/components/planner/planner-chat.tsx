@@ -37,9 +37,15 @@ import { useVisualViewportHeight } from "@/lib/use-visual-viewport";
 import { cn } from "@/lib/utils";
 
 const EXAMPLE_PROMPTS = [
-  "We earn S$10k, work in Changi and Buona Vista, parents in Yishun. 4-room under S$550k, can wait 4 years",
-  "Shortest wait 3-room in the East",
-  "Compare Prime vs Standard for a first-timer",
+  {
+    prompt: "Help me shortlist 4-room BTO projects under S$550k.",
+  },
+  {
+    prompt: "Which 3-room projects in the East have the shortest waits?",
+  },
+  {
+    prompt: "How do Plus and Standard flat rules differ?",
+  },
 ];
 
 // The full hint wraps to two lines under the sm breakpoint, inflating the
@@ -412,16 +418,19 @@ export function PlannerChat({
                     </Link>
                   </div>
                 ) : null}
-                <div className="flex flex-col gap-2">
-                  {EXAMPLE_PROMPTS.map((prompt) => (
-                    <button
-                      key={prompt}
+                <div className="divide-y divide-border border-y border-border">
+                  {EXAMPLE_PROMPTS.map((example) => (
+                    <Button
+                      key={example.prompt}
                       type="button"
-                      onClick={() => fillExample(prompt)}
-                      className="min-h-11 w-fit max-w-full rounded-2xl border border-border bg-surface px-3.5 py-2 text-left text-sm text-ink transition-colors hover:border-teal-deep/40 hover:bg-teal-subtle/40"
+                      variant="ghost"
+                      onClick={() => fillExample(example.prompt)}
+                      className="h-auto min-h-12 w-full justify-start rounded-none px-1 py-3 text-left whitespace-normal"
                     >
-                      {prompt}
-                    </button>
+                      <span className="text-sm font-medium text-ink">
+                        {example.prompt}
+                      </span>
+                    </Button>
                   ))}
                 </div>
                 <p className="mt-6 text-sm text-muted-foreground">

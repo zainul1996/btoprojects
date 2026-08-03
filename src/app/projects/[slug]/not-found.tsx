@@ -9,11 +9,18 @@ export default function ProjectNotFound() {
     <div className="mx-auto max-w-5xl px-4 py-16 md:px-6 md:py-24">
       <EmptyState
         icon={SearchX}
-        title="We don't track a project by that name"
-        hint="It may not have launched yet, or the link has changed. Browse every project we follow."
+        headingLevel={1}
+        title="Project page not found"
+        hint="The project may not be in our current records, or its link may have changed."
+        details={
+          <p className="text-sm text-muted-foreground">
+            Search the full project list to check recent BTO launches and SBF
+            town pools.
+          </p>
+        }
         action={
           <Link href="/explore" className={buttonVariants()}>
-            Browse all projects
+            Search all projects
           </Link>
         }
       />

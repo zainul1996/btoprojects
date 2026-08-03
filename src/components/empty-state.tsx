@@ -1,42 +1,62 @@
 import type { LucideIcon } from "lucide-react"
-import type { ComponentProps, ReactNode } from "react"
+import type { ComponentProps, ElementType, ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
 type EmptyStateProps = ComponentProps<"div"> & {
   icon: LucideIcon
-  /** One line: what this space is. */
+  /** What this space is. Keep it concrete and task-specific. */
   title: string
-  /** One line: what to do next. */
+  /** What happened or what the user can do next. */
   hint?: string
+  /** Optional task detail, such as steps or a compact feature summary. */
+  details?: ReactNode
   action?: ReactNode
+  /** Empty states sit below a page heading by default. */
+  headingLevel?: 1 | 2 | 3
 }
 
 function EmptyState({
   icon: Icon,
   title,
   hint,
+  details,
   action,
+  headingLevel = 2,
   className,
   ...props
 }: EmptyStateProps) {
+  const Heading = `h${headingLevel}` as ElementType
+
   return (
     <div
       data-slot="empty-state"
       className={cn(
-        "flex flex-col items-center justify-center gap-2.5 rounded-xl border border-dashed px-6 py-12 text-center",
+        "flex flex-col gap-5 rounded-xl border border-border bg-surface px-5 py-6 md:px-7 md:py-8",
         className
       )}
       {...props}
     >
-      <div className="grid size-12 place-items-center rounded-full bg-teal-subtle text-teal-deeper">
-        <Icon className="size-5" aria-hidden />
+      <div className="flex items-start gap-3.5">
+        <Icon className="mt-0.5 size-5 shrink-0 text-teal-deep" aria-hidden />
+        <div className="flex min-w-0 flex-col gap-1">
+          <Heading
+            className={cn(
+              "font-semibold text-ink",
+              headingLevel === 1
+                ? "text-2xl tracking-tight md:text-3xl"
+                : "text-base md:text-lg"
+            )}
+          >
+            {title}
+          </Heading>
+          {hint ? (
+            <p className="max-w-2xl text-sm text-muted-foreground">{hint}</p>
+          ) : null}
+        </div>
       </div>
-      <p className="text-sm font-medium text-ink">{title}</p>
-      {hint ? (
-        <p className="max-w-sm text-sm text-muted-foreground">{hint}</p>
-      ) : null}
-      {action ? <div className="mt-1.5">{action}</div> : null}
+      {details ? <div>{details}</div> : null}
+      {action ? <div className="flex flex-wrap items-center gap-2">{action}</div> : null}
     </div>
   )
 }

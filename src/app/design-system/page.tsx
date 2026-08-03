@@ -16,7 +16,6 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -24,15 +23,24 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Slider } from "@/components/ui/slider";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 export const metadata: Metadata = {
-  title: "Design system — internal",
+  title: "Design system (internal)",
   robots: { index: false },
 };
 
@@ -70,9 +78,65 @@ const FLAT_TYPES = [
   { label: "3Gen", value: "3gen" },
 ];
 
+const COMPOSITION_PATTERNS = [
+  {
+    name: "Card",
+    use: "A cohesive decision bundle with its own status, comparison context or actions.",
+    avoid: "Short definitions, FAQ answers, source citations or decorative grouping.",
+  },
+  {
+    name: "Divided row",
+    use: "Comparable records with the same fields, such as sources, projects or alert rules.",
+    avoid: "Unrelated content that needs separate headings.",
+  },
+  {
+    name: "Callout",
+    use: "A warning, limitation, verification step or important exception.",
+    avoid: "General supporting copy or promotional framing.",
+  },
+  {
+    name: "Plain section",
+    use: "Explanatory copy, definitions and editorial guidance.",
+    avoid: "Dense interactive controls that need a clear boundary.",
+  },
+] as const;
+
+const STATE_ROWS = [
+  {
+    state: "Loading",
+    show: "Stable layout and a clear pending state.",
+    action: "Let the user continue browsing or leave safely.",
+  },
+  {
+    state: "Empty",
+    show: "What the area is and why it is empty.",
+    action: "Offer one relevant next step.",
+  },
+  {
+    state: "Error",
+    show: "What failed and whether saved work is safe.",
+    action: "Offer retry, recovery or a clear fallback.",
+  },
+  {
+    state: "Signed out",
+    show: "What works without an account.",
+    action: "Ask for sign-in only when saving or history requires it.",
+  },
+  {
+    state: "Success",
+    show: "The changed inline state.",
+    action: "Offer the logical next step when one exists.",
+  },
+  {
+    state: "Partial data",
+    show: "Which facts are missing or stale.",
+    action: "Link to source or verification guidance.",
+  },
+] as const;
+
 function Swatch({ name, className, value }: { name: string; className: string; value?: string }) {
   return (
-    <div className="space-y-1.5">
+    <div className="flex flex-col gap-1.5">
       <div className={`h-14 rounded-lg border border-border/60 ${className}`} />
       <p className="text-xs font-medium text-ink">{name}</p>
       {value ? (
@@ -91,7 +155,7 @@ export default function DesignSystemPage() {
         lede="Tokens, trust primitives and shell for BTOProjects.sg. Not linked in navigation."
       />
 
-      <Section title="Colour" description="Every colour is a token — no ad-hoc values in components.">
+      <Section title="Colour" description="Every colour is a token. Components do not use ad hoc values.">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-5">
           {SWATCHES.map((s) => (
             <Swatch key={s.name} {...s} />
@@ -104,19 +168,25 @@ export default function DesignSystemPage() {
         </div>
       </Section>
 
-      <Section title="Typography" description="Inter. Large headings track slightly tight; numerals are tabular.">
-        <div className="space-y-4 rounded-xl border bg-card p-6">
-          <h1>Heading 1 — Tengah Garden Walk</h1>
-          <h2>Heading 2 — Price range</h2>
-          <h3>Heading 3 — Nearby schools</h3>
-          <h4>Heading 4 — Site observations</h4>
+      <Section title="Typography" description="Inter. Large headings track slightly tight, and numerals are tabular.">
+        <div className="flex flex-col gap-4 rounded-xl border bg-card p-6">
+          <p className="text-3xl font-semibold tracking-tight text-balance md:text-4xl">
+            Heading 1: Tengah Garden Walk
+          </p>
+          <p className="text-2xl font-semibold tracking-tight text-balance md:text-3xl">
+            Heading 2: Price range
+          </p>
+          <p className="text-xl font-semibold md:text-2xl">
+            Heading 3: Nearby schools
+          </p>
+          <p className="text-lg font-semibold">Heading 4: Site observations</p>
           <p className="text-sm">
-            Body copy — 4-room flats from <Price value={420000} className="inline" />{" "}
+            Body copy: 4-room flats from <Price value={420000} className="inline" />{" "}
             with an estimated wait of 4 years. Facts are labelled, estimates are
             marked, and analysis is always attributed.
           </p>
           <p className="text-sm text-muted-foreground">
-            Muted — used for supporting context, never for primary facts.
+            Muted copy supports context. It is never used for primary facts.
           </p>
           <p className="text-sm">
             <span className="text-muted-foreground">Without tnum: </span>420000
@@ -128,7 +198,7 @@ export default function DesignSystemPage() {
 
       <Section
         title="Trust badges"
-        description="Fact vs. interpretation is never ambiguous — official, estimated and analysis differ by icon, fill and border, not colour alone."
+        description="Fact and interpretation must not look the same. Official, estimated and analysis differ by icon, fill and border, not colour alone."
       >
         <div className="flex flex-wrap items-center gap-3">
           <SourceBadge variant="official" size="sm" />
@@ -157,7 +227,7 @@ export default function DesignSystemPage() {
         </div>
       </Section>
 
-      <Section title="Data display" description="Stats and prices are display elements — large, semibold, tabular.">
+      <Section title="Data display" description="Stats and prices are large, semibold display elements with tabular numerals.">
         <div className="grid grid-cols-2 gap-6 rounded-xl border bg-card p-6 md:grid-cols-4">
           <Stat label="From (4-room)" value={<Price value={420000} />} note="Official price list" />
           <Stat label="Units" value="1,240" note="All flat types" />
@@ -172,7 +242,7 @@ export default function DesignSystemPage() {
         </div>
       </Section>
 
-      <Section title="Buttons" description="One primary action per screen; secondary actions stay quiet.">
+      <Section title="Buttons" description="Use one primary action for the current decision. Secondary actions stay quiet.">
         <div className="flex flex-wrap items-center gap-3">
           <Button>Apply for this launch</Button>
           <Button variant="secondary">Secondary</Button>
@@ -192,6 +262,84 @@ export default function DesignSystemPage() {
         </div>
       </Section>
 
+      <Section
+        title="Composition patterns"
+        description="Choose the lightest structure that makes the content relationship clear."
+      >
+        <dl className="divide-y divide-border overflow-hidden rounded-xl border bg-card">
+          {COMPOSITION_PATTERNS.map((pattern) => (
+            <div
+              key={pattern.name}
+              className="grid gap-2 p-4 sm:grid-cols-[8rem_1fr_1fr] sm:gap-4 sm:p-5"
+            >
+              <dt className="text-sm font-semibold text-ink">{pattern.name}</dt>
+              <dd className="text-sm text-muted-foreground">
+                <span className="font-medium text-ink">Use: </span>
+                {pattern.use}
+              </dd>
+              <dd className="text-sm text-muted-foreground">
+                <span className="font-medium text-ink">Avoid: </span>
+                {pattern.avoid}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </Section>
+
+      <Section
+        title="Mobile composition"
+        description="Mobile is designed around the active task, not produced by wrapping desktop columns."
+      >
+        <ol className="grid gap-3 rounded-xl bg-muted/45 p-5 text-sm text-muted-foreground md:grid-cols-2 md:p-6">
+          <li>
+            <span className="font-medium text-ink">1. Start at 320 pixels.</span>{" "}
+            Keep one reading column and test long town names and prices.
+          </li>
+          <li>
+            <span className="font-medium text-ink">2. Keep the next action close.</span>{" "}
+            Place it near the active task and above the software keyboard.
+          </li>
+          <li>
+            <span className="font-medium text-ink">3. Reserve changing space.</span>{" "}
+            Loading, authentication and live data must not shift controls.
+          </li>
+          <li>
+            <span className="font-medium text-ink">4. Protect touch targets.</span>{" "}
+            Primary controls and icon buttons need at least 44 by 44 pixels.
+          </li>
+        </ol>
+      </Section>
+
+      <Section
+        title="Required states"
+        description="Define and test these states before a feature is considered complete."
+      >
+        <div className="overflow-hidden rounded-xl border bg-card">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>State</TableHead>
+                <TableHead>Show</TableHead>
+                <TableHead>Next action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {STATE_ROWS.map((row) => (
+                <TableRow key={row.state}>
+                  <TableCell className="font-medium">{row.state}</TableCell>
+                  <TableCell className="min-w-64 whitespace-normal text-muted-foreground">
+                    {row.show}
+                  </TableCell>
+                  <TableCell className="min-w-64 whitespace-normal text-muted-foreground">
+                    {row.action}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </Section>
+
       <Section title="Base badges">
         <div className="flex flex-wrap items-center gap-3">
           <Badge>Default</Badge>
@@ -203,16 +351,16 @@ export default function DesignSystemPage() {
         </div>
       </Section>
 
-      <Section title="Card" description="One idea per card, generous padding, trust signals attached to facts.">
+      <Section title="Card" description="Use a card for one cohesive decision bundle, with trust signals attached to facts.">
         <Card className="max-w-md">
           <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2">
+            <h3 className="flex items-center justify-between gap-2 font-heading text-base leading-snug font-medium">
               Tengah Garden Walk
               <LifecycleChip stage="launched" />
-            </CardTitle>
+            </h3>
             <CardDescription>Tengah · Jun 2026 launch · 4-room from S$420,000</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="flex flex-col gap-4">
             <div className="flex items-center gap-2">
               <SourceBadge variant="official" size="sm" />
               <LastVerified date="2026-07-28" />
@@ -241,27 +389,29 @@ export default function DesignSystemPage() {
       </Section>
 
       <Section title="Form primitives">
-        <div className="max-w-md space-y-6 rounded-xl border bg-card p-6">
-          <div className="space-y-2">
+        <div className="flex max-w-md flex-col gap-6 rounded-xl border bg-card p-6">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="budget">Household budget</Label>
             <Input id="budget" type="text" inputMode="numeric" placeholder="S$650,000" className="tnum" />
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label htmlFor="flat-type">Flat type</Label>
             <Select items={FLAT_TYPES} defaultValue="4-room">
               <SelectTrigger id="flat-type" className="w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {FLAT_TYPES.map((f) => (
-                  <SelectItem key={f.value} value={f.value}>
-                    {f.label}
-                  </SelectItem>
-                ))}
+                <SelectGroup>
+                  {FLAT_TYPES.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2">
             <Label>Price range</Label>
             <Slider
               aria-label="Price range"
@@ -285,7 +435,7 @@ export default function DesignSystemPage() {
       </Section>
 
       <Section title="Skeleton">
-        <div className="max-w-md space-y-3 rounded-xl border bg-card p-6">
+        <div className="flex max-w-md flex-col gap-3 rounded-xl border bg-card p-6">
           <Skeleton className="h-5 w-2/5" />
           <Skeleton className="h-4 w-4/5" />
           <Skeleton className="h-4 w-3/5" />

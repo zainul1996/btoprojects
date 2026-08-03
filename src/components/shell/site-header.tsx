@@ -1,6 +1,12 @@
 "use client"
 
-import { Show, SignInButton, UserButton } from "@clerk/nextjs"
+import {
+  ClerkLoaded,
+  ClerkLoading,
+  Show,
+  SignInButton,
+  UserButton,
+} from "@clerk/nextjs"
 import { useQuery } from "convex/react"
 import { Bell, Menu } from "lucide-react"
 import Link from "next/link"
@@ -23,7 +29,7 @@ import { cn } from "@/lib/utils"
 const NAV_ITEMS = [
   { href: "/explore", label: "Find projects" },
   { href: "/upcoming", label: "Launch calendar" },
-  { href: "/planner", label: "AI Planner" },
+  { href: "/planner", label: "Planner" },
   { href: "/watchlist", label: "Saved & alerts" },
 ] as const
 
@@ -36,9 +42,11 @@ function Wordmark({ onClick }: { onClick?: () => void } = {}) {
     <Link
       href="/"
       onClick={onClick}
+      aria-label="BTOProjects.sg home"
       className="flex min-h-11 items-center text-lg font-bold tracking-tight text-navy hover:text-navy"
     >
-      BTOProjects<span className="text-teal-deep">.sg</span>
+      BTOProjects
+      <span className="hidden text-teal-deep min-[360px]:inline">.sg</span>
     </Link>
   )
 }
@@ -109,7 +117,7 @@ function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 md:px-6">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-4 md:gap-4 md:px-6">
         <div className="flex min-w-0 items-center gap-8">
           <Wordmark />
           <nav aria-label="Primary" className="hidden items-stretch md:flex">
@@ -135,20 +143,27 @@ function SiteHeader() {
           </nav>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Show when="signed-in">
-            <NotificationBell />
-          </Show>
-          <Show when="signed-out">
-            <SignInButton mode="modal">
-              <Button variant="ghost" size="sm">
-                Sign in
-              </Button>
-            </SignInButton>
-          </Show>
-          <Show when="signed-in">
-            <UserButton />
-          </Show>
+        <div className="flex shrink-0 items-center gap-2">
+          <div className="flex w-20 items-center justify-end gap-2 sm:w-22">
+            <ClerkLoading>
+              <span className="block h-8 w-16" aria-hidden />
+            </ClerkLoading>
+            <ClerkLoaded>
+              <Show when="signed-in">
+                <NotificationBell />
+              </Show>
+              <Show when="signed-out">
+                <SignInButton mode="modal">
+                  <Button variant="ghost" size="sm">
+                    Sign in
+                  </Button>
+                </SignInButton>
+              </Show>
+              <Show when="signed-in">
+                <UserButton />
+              </Show>
+            </ClerkLoaded>
+          </div>
 
           <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger

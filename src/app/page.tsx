@@ -3,21 +3,17 @@ import Link from "next/link";
 import {
   ArrowRight,
   Bell,
-  Bot,
-  CalendarDays,
-  Map,
+  CalendarClock,
+  CircleDollarSign,
+  House,
+  LockKeyhole,
+  MapPin,
   Scale,
 } from "lucide-react";
 
 import { Section } from "@/components/section";
 import { SourceBadge } from "@/components/source-badge";
 import { buttonVariants } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-} from "@/components/ui/card";
 import { JsonLd } from "@/components/seo/json-ld";
 import { absoluteUrl, createPageMetadata } from "@/lib/seo";
 import { cn } from "@/lib/utils";
@@ -34,13 +30,43 @@ const HOME_TYPES = [
     title: "Build-To-Order (BTO)",
     description:
       "Named projects launched with a location, flat mix and expected waiting time.",
+    href: "/explore?sale=bto&view=list",
+    action: "Browse BTO projects",
   },
   {
     title: "Sale of Balance Flats (SBF)",
     description:
       "Balance flats offered in town pools. Flat types, locations and completion stages can vary within each pool.",
+    href: "/explore?sale=sbf&view=list",
+    action: "Browse SBF town pools",
   },
 ] as const;
+
+const PLANNING_INPUTS = [
+  {
+    icon: CircleDollarSign,
+    label: "Budget",
+    hint: "Include grants if relevant",
+  },
+  {
+    icon: House,
+    label: "Flat type",
+    hint: "Choose the sizes that work",
+  },
+  {
+    icon: MapPin,
+    label: "Preferred towns",
+    hint: "Add the places you would consider",
+  },
+  {
+    icon: CalendarClock,
+    label: "Move-in timing",
+    hint: "Share when you hope to collect keys",
+  },
+] as const;
+
+const PLANNER_START_PROMPT =
+  "Help me build a shortlist. Ask me about my budget, flat type, preferred towns and when I hope to collect the keys.";
 
 const HOME_FAQS = [
   {
@@ -83,7 +109,7 @@ export default function HomePage() {
   return (
     <div className="mx-auto w-full max-w-7xl">
       <JsonLd id="home-faq-schema" data={homeFaqJsonLd} />
-      <section className="grid items-center gap-8 px-4 pt-10 pb-10 md:grid-cols-[minmax(0,1fr)_minmax(20rem,0.72fr)] md:gap-12 md:px-6 md:pt-20 md:pb-16">
+      <section className="grid items-center gap-8 px-4 pt-10 pb-10 md:grid-cols-[minmax(0,1fr)_minmax(24rem,0.78fr)] md:gap-12 md:px-6 md:pt-20 md:pb-16">
         <div>
           <p className="text-sm font-medium text-teal-deep">
             BTO and SBF decision support
@@ -97,50 +123,51 @@ export default function HomePage() {
           </p>
         </div>
 
-        <Card className="gap-0 py-0">
-          <CardHeader className="p-5 pb-3 md:p-6 md:pb-3">
-            <div className="mb-2 grid size-10 place-items-center rounded-lg bg-teal-subtle text-teal-deeper">
-              <Bot className="size-5" aria-hidden />
-            </div>
-            <h2 className="font-heading text-lg leading-snug font-semibold">
-              Start with your needs
-            </h2>
-            <CardDescription>
-              Get a ranked shortlist based on what matters to your household.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3 p-5 pt-2 md:p-6 md:pt-2">
-            <Link
-              href="/planner"
-              className={cn(buttonVariants({ size: "lg" }), "min-h-11 w-full")}
-            >
-              Plan with AI
-              <ArrowRight data-icon="inline-end" aria-hidden />
-            </Link>
-            <div className="grid grid-cols-2 gap-2">
-              <Link
-                href="/explore"
-                className={cn(
-                  buttonVariants({ variant: "outline" }),
-                  "min-h-11 w-full px-2 text-xs sm:text-sm",
-                )}
+        <section
+          aria-labelledby="planning-brief-title"
+          className="rounded-xl border border-border bg-surface px-5 py-5 md:px-6 md:py-6"
+        >
+          <h2
+            id="planning-brief-title"
+            className="font-heading text-xl leading-snug font-semibold md:text-2xl"
+          >
+            Your HDB planning brief
+          </h2>
+          <p className="mt-1.5 text-sm text-muted-foreground">
+            The planner asks four things before it ranks suitable BTO projects.
+          </p>
+
+          <ul className="mt-4 divide-y divide-border" aria-label="Planning inputs">
+            {PLANNING_INPUTS.map(({ icon: Icon, label, hint }) => (
+              <li
+                key={label}
+                className="grid min-h-15 grid-cols-[1.25rem_minmax(0,1fr)] items-center gap-x-3 py-3 md:grid-cols-[1.25rem_8.5rem_minmax(0,1fr)]"
               >
-                <Map aria-hidden />
-                Explore projects
-              </Link>
-              <Link
-                href="/upcoming"
-                className={cn(
-                  buttonVariants({ variant: "ghost" }),
-                  "min-h-11 w-full px-2 text-xs sm:text-sm",
-                )}
-              >
-                <CalendarDays aria-hidden />
-                Launch calendar
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
+                <Icon className="size-5 text-teal-deep" aria-hidden />
+                <span className="text-sm font-medium text-ink">{label}</span>
+                <span className="col-start-2 text-xs text-muted-foreground md:col-start-3 md:text-right md:text-sm">
+                  {hint}
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <Link
+            href={`/planner?prompt=${encodeURIComponent(PLANNER_START_PROMPT)}`}
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "mt-4 min-h-11 w-full",
+            )}
+          >
+            Build my shortlist
+            <ArrowRight data-icon="inline-end" aria-hidden />
+          </Link>
+          <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-muted-foreground">
+            <LockKeyhole className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            The planner uses your answers and cited project data. SBF search is
+            included.
+          </p>
+        </section>
       </section>
 
       <Section
@@ -148,47 +175,58 @@ export default function HomePage() {
         description="Explore both HDB sales routes without treating unlike options as identical."
         className="border-t border-border px-4 md:px-6"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid border-y border-border sm:grid-cols-2 sm:divide-x sm:divide-y-0 sm:divide-border">
           {HOME_TYPES.map((type) => (
-            <Card key={type.title} size="sm">
-              <CardHeader>
-                <h3 className="font-heading text-sm leading-snug font-medium">
-                  {type.title}
-                </h3>
-                <CardDescription>{type.description}</CardDescription>
-              </CardHeader>
-            </Card>
+            <article
+              key={type.title}
+              className="flex flex-col gap-2 border-b border-border px-1 py-5 last:border-b-0 sm:border-b-0 sm:px-5 sm:first:pl-0 sm:last:pr-0"
+            >
+              <h3 className="font-heading text-base leading-snug font-semibold">
+                {type.title}
+              </h3>
+              <p className="text-sm text-muted-foreground">{type.description}</p>
+              <Link
+                href={type.href}
+                className="mt-auto w-fit pt-1 text-sm font-medium text-teal-deep hover:underline"
+              >
+                {type.action}
+                <ArrowRight className="ml-1 inline size-3.5" aria-hidden />
+              </Link>
+            </article>
           ))}
         </div>
       </Section>
 
       <Section className="px-4 md:px-6">
-        <Card className="gap-0 bg-muted/50 py-0">
-          <CardContent className="grid gap-5 p-5 md:grid-cols-[1fr_auto] md:items-center md:p-6">
-            <div className="flex gap-3.5">
-              <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-background text-navy ring-1 ring-foreground/10">
-                <Scale className="size-5" aria-hidden />
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Shortlist first, compare second
-                </h2>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  Select projects as you browse. The comparison tray keeps
-                  their key trade-offs together; save places to follow changes
-                  and receive alerts.
-                </p>
-              </div>
+        <div className="grid gap-5 border-l-2 border-teal px-4 py-2 md:grid-cols-[1fr_auto] md:items-center md:px-5">
+          <div className="flex gap-3.5">
+            <Scale className="mt-0.5 size-5 shrink-0 text-teal-deep" aria-hidden />
+            <div>
+              <h2 className="text-lg font-semibold">
+                Shortlist first, compare second
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                Select projects as you browse, then compare their price,
+                timeline and location in one view.
+              </p>
             </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pl-8 md:pl-0">
             <Link
-              href="/watchlist"
+              href="/compare"
               className={cn(buttonVariants({ variant: "outline" }), "w-fit")}
             >
-              <Bell aria-hidden />
+              Compare shortlist
+            </Link>
+            <Link
+              href="/watchlist"
+              className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-teal-deep hover:underline"
+            >
+              <Bell className="size-4" aria-hidden />
               Saved &amp; alerts
             </Link>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </Section>
 
       <Section
@@ -196,18 +234,21 @@ export default function HomePage() {
         description="A short guide to the sales routes and how we label housing information."
         className="border-t border-border px-4 md:px-6"
       >
-        <div className="grid gap-4 md:grid-cols-2">
+        <dl className="grid border-y border-border md:grid-cols-2">
           {HOME_FAQS.map((faq) => (
-            <Card key={faq.question} size="sm">
-              <CardHeader>
-                <h3 className="font-heading text-sm leading-snug font-medium">
-                  {faq.question}
-                </h3>
-                <CardDescription>{faq.answer}</CardDescription>
-              </CardHeader>
-            </Card>
+            <div
+              key={faq.question}
+              className="border-b border-border py-5 last:border-b-0 md:px-5 md:[&:nth-child(even)]:border-l md:[&:nth-child(even)]:pr-0 md:[&:nth-child(odd)]:pl-0 md:[&:nth-last-child(-n+2)]:border-b-0"
+            >
+              <dt className="font-heading text-sm leading-snug font-semibold text-ink">
+                {faq.question}
+              </dt>
+              <dd className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {faq.answer}
+              </dd>
+            </div>
           ))}
-        </div>
+        </dl>
         <p className="text-sm text-muted-foreground">
           Read our{" "}
           <Link

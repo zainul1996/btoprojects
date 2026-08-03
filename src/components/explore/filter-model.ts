@@ -38,24 +38,44 @@ export type StatusCounts = Record<ApplicationStatus | "all", number>;
 /** Per-option result counts for the sale-type segmented control. */
 export type SaleCounts = Record<SaleType | "all", number>;
 
-/** Local "YYYY-MM-DD" — string-comparable against stored ISO deadlines. */
+/** Singapore "YYYY-MM-DD", comparable against HDB's stored ISO deadlines. */
 export function todayIso(): string {
-  const now = new Date();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${now.getFullYear()}-${month}-${day}`;
+  const parts = new Intl.DateTimeFormat("en-SG", {
+    timeZone: "Asia/Singapore",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
 }
 
 /**
- * Can a buyer apply for this project right now? lifecycleStatus is the
- * primary signal, refined by the application deadline where one exists.
- * construction/sbf/mop have no open application window, so they read as
- * "closed" for this filter.
+ * Can a buyer apply for this option right now? BTO status comes from the
+ * project lifecycle and deadline. SBF status comes from its sales exercise.
+ * Construction and MOP records have no open application window.
  */
 export function applicationStatusOf(
-  project: { lifecycleStatus: string; applicationDeadline?: string },
+  project: {
+    lifecycleStatus: string;
+    applicationDeadline?: string;
+    saleType?: string;
+  },
   today: string,
+  exercise?: {
+    status: ApplicationStatus | null;
+    applicationEnd: string | null;
+  },
 ): ApplicationStatus {
+  if (project.saleType === "sbf" && exercise?.status) {
+    return effectiveExerciseStatus(
+      {
+        status: exercise.status,
+        applicationEnd: exercise.applicationEnd ?? undefined,
+      },
+      today,
+    );
+  }
   if (project.lifecycleStatus === "announced") return "upcoming";
   if (project.lifecycleStatus === "launched") {
     return !project.applicationDeadline || project.applicationDeadline >= today

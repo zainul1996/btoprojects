@@ -1,11 +1,16 @@
 import Link from "next/link";
-import { Clock3, TrainFront } from "lucide-react";
+import { Building2, Clock3, TrainFront } from "lucide-react";
 import type { FunctionReturnType } from "convex/server";
 
 import { api } from "../../convex/_generated/api";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
+import {
+  applicationStatusOf,
+  todayIso,
+} from "@/components/explore/filter-model";
 import { LifecycleChip } from "@/components/lifecycle-chip";
 import { Price } from "@/components/price";
+import { formatCount } from "@/components/project/utils";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { WatchButton } from "@/components/watch-button";
@@ -55,9 +60,11 @@ export function shortExerciseLabel(label: string): string {
 export function ProjectCard({
   summary,
   className,
+  context = "explore",
 }: {
   summary: ProjectSummary;
   className?: string;
+  context?: "explore" | "exercise" | "town";
 }) {
   const { project, town, flatTypes, exerciseLabel } = summary;
   const isAnnounced = project.lifecycleStatus === "announced";
@@ -70,6 +77,13 @@ export function ProjectCard({
   const sortedFlats = [...flatTypes].sort(
     (a, b) => a.minPrice - b.minPrice,
   );
+  const applicationStatus = applicationStatusOf(project, todayIso());
+  const showSaleType = context === "explore";
+  const showLocation = context !== "town";
+  // SBF pool records use a lifecycle value that is not an application status.
+  // Their exercise label supplies the useful context without claiming that
+  // every pool is closed.
+  const showApplicationStatus = context !== "exercise" && !isSbf;
 
   return (
     <Card
@@ -86,29 +100,44 @@ export function ProjectCard({
         }
       />
       <CardContent className="relative z-10 pointer-events-none flex flex-col gap-3 p-5">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
           <div className="min-w-0">
-            <h3 className="truncate text-base font-semibold text-ink group-hover:text-teal-deep">
+            <h3 className="text-base leading-snug font-semibold text-ink group-hover:text-teal-deep">
               {project.name}
             </h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">
-              {town?.name ?? project.region} · {project.region}
-            </p>
+            {showLocation ? (
+              <p className="mt-0.5 text-sm text-muted-foreground">
+                {town?.name ?? project.region} · {project.region}
+              </p>
+            ) : null}
           </div>
-          <div className="flex shrink-0 items-center gap-1.5">
-            <Badge
-              variant="outline"
-              className={
-                isSbf
-                  ? "border-teal-deep/25 bg-teal-subtle font-medium text-teal-deeper"
-                  : "font-medium text-muted-foreground"
-              }
-            >
-              {isSbf ? "SBF" : "BTO"}
-            </Badge>
-            {/* SBF is a sale format, not a project lifecycle stage. Its
-                exercise badge identifies it without a duplicate "SBF" chip. */}
-            {!isSbf ? <LifecycleChip stage={project.lifecycleStatus} /> : null}
+          <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+            {showSaleType ? (
+              <Badge
+                variant="outline"
+                className={
+                  isSbf
+                    ? "border-teal-deep/25 bg-teal-subtle font-medium text-teal-deeper"
+                    : "font-medium text-muted-foreground"
+                }
+              >
+                {isSbf ? "SBF" : "BTO"}
+              </Badge>
+            ) : null}
+            {showApplicationStatus ? (
+              <Badge
+                variant={applicationStatus === "open" ? "default" : "secondary"}
+                className="font-medium"
+              >
+                {applicationStatus === "open"
+                  ? "Open now"
+                  : applicationStatus === "upcoming"
+                    ? "Upcoming"
+                    : "Applications closed"}
+              </Badge>
+            ) : !isSbf ? (
+              <LifecycleChip stage={project.lifecycleStatus} />
+            ) : null}
           </div>
         </div>
 
@@ -142,8 +171,11 @@ export function ProjectCard({
                 <Price value={knownPrice} />
               </p>
             ) : isSbf ? (
-              <p className="text-sm font-medium text-muted-foreground">
-                Price data unavailable
+              <p className="text-sm text-muted-foreground">
+                <span className="tnum font-semibold text-ink">
+                  {formatCount(project.totalUnits)}
+                </span>{" "}
+                balance flat{project.totalUnits === 1 ? "" : "s"}
               </p>
             ) : isAnnounced ? (
               <p className="text-sm font-medium text-muted-foreground">
@@ -151,6 +183,13 @@ export function ProjectCard({
               </p>
             ) : null}
             <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {!isSbf && project.totalUnits > 0 ? (
+                <span className="inline-flex items-center gap-1">
+                  <Building2 className="size-3.5" aria-hidden />
+                  <span className="tnum">{formatCount(project.totalUnits)}</span>{" "}
+                  homes
+                </span>
+              ) : null}
               <span className="inline-flex items-center gap-1">
                 <Clock3 className="size-3.5" aria-hidden />
                 {isSbf
@@ -179,7 +218,7 @@ export function ProjectCard({
             targetId={project.slug}
             label={project.name}
           />
-          <AddToCompareButton slug={project.slug} />
+          <AddToCompareButton slug={project.slug} label={project.name} />
         </div>
       </CardContent>
     </Card>

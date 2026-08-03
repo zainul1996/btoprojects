@@ -7,18 +7,24 @@ import { CalendarClock, ExternalLink } from "lucide-react";
 
 import { api } from "../../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
+import {
+  SbfBoard,
+  type SbfTownGroup,
+} from "@/components/explore/sbf-board";
+import {
+  effectiveExerciseStatus,
+  todayIso,
+} from "@/components/explore/filter-model";
 import { PageHeader } from "@/components/page-header";
 import {
   exerciseStatusLabel,
   formatCount,
   formatIsoDate,
-  townHref,
 } from "@/components/project/utils";
 import { Section } from "@/components/section";
 import { Stat } from "@/components/stat";
 import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
   absoluteUrl,
@@ -27,7 +33,14 @@ import {
   SITE_URL,
 } from "@/lib/seo";
 
-type Props = { params: Promise<{ exercise: string }> };
+type Props = {
+  params: Promise<{ exercise: string }>;
+  searchParams: Promise<{
+    town?: string | string[];
+    flat?: string | string[];
+    sort?: string | string[];
+  }>;
+};
 
 type Board = Awaited<ReturnType<typeof fetchBoard>>;
 // The handler's early return widens `rows` to a union with `never[]`;
@@ -40,7 +53,7 @@ const fetchBoard = cache(async (key: string) =>
 
 /** Rows grouped by town, town order alphabetical (board arrives pre-sorted). */
 function groupByTown(rows: BoardRow[]) {
-  const towns: { town: string; region: string; projectSlug: string; classification: string; rows: BoardRow[] }[] = [];
+  const towns: SbfTownGroup[] = [];
   for (const row of rows) {
     const last = towns[towns.length - 1];
     if (last && last.town === row.town) {
@@ -82,13 +95,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   });
 }
 
-export default async function SbfExercisePage({ params }: Props) {
-  const { exercise: key } = await params;
+export default async function SbfExercisePage({
+  params,
+  searchParams: searchParamsPromise,
+}: Props) {
+  const [{ exercise: key }, searchParams] = await Promise.all([
+    params,
+    searchParamsPromise,
+  ]);
   const board = await fetchBoard(key);
 
   if (!board.exercise || board.exercise.type !== "sbf") notFound();
 
   const { exercise, rows, totals } = board;
+  const effectiveStatus = effectiveExerciseStatus(exercise, todayIso());
   const towns = groupByTown(rows);
   const path = `/sbf/${exercise.key}`;
   const sbfJsonLd = {
@@ -123,12 +143,12 @@ export default async function SbfExercisePage({ params }: Props) {
         lede="Balance flats from earlier launches, sold by town and flat type rather than by project, and often completed or near completion."
       />
       <div className="-mt-4 mb-2 flex flex-wrap items-center gap-2">
-        <Badge variant={exercise.status === "open" ? "default" : "secondary"}>
-          {exerciseStatusLabel(exercise.status)}
+        <Badge variant={effectiveStatus === "open" ? "default" : "secondary"}>
+          {exerciseStatusLabel(effectiveStatus)}
         </Badge>
         {exercise.applicationEnd ? (
           <span className="text-sm text-muted-foreground">
-            Applications {exercise.status === "closed" ? "closed" : "close"}{" "}
+            Applications {effectiveStatus === "closed" ? "closed" : "close"}{" "}
             {formatIsoDate(exercise.applicationEnd)}
           </span>
         ) : null}
@@ -136,12 +156,10 @@ export default async function SbfExercisePage({ params }: Props) {
 
       {totals.units > 0 ? (
         <Section title="At a glance">
-          <Card>
-            <CardContent className="grid grid-cols-2 gap-6 p-5 md:p-6">
-              <Stat label="Balance flats" value={formatCount(totals.units)} />
-              <Stat label="Towns" value={formatCount(totals.towns)} />
-            </CardContent>
-          </Card>
+          <div className="grid max-w-xl grid-cols-2 gap-6 border-y border-border py-5">
+            <Stat label="Balance flats" value={formatCount(totals.units)} />
+            <Stat label="Towns" value={formatCount(totals.towns)} />
+          </div>
         </Section>
       ) : null}
 
@@ -153,7 +171,7 @@ export default async function SbfExercisePage({ params }: Props) {
           <EmptyState
             icon={CalendarClock}
             title="The flat list is revealed on launch day"
-            hint="HDB publishes the towns, flat types and prices when the exercise opens. We carry them here the same day."
+            hint="HDB publishes the towns, flat types and prices when the exercise opens. We add them after HDB publishes them."
             action={
               <Link href="/upcoming" className={buttonVariants()}>
                 See upcoming launches
@@ -161,87 +179,23 @@ export default async function SbfExercisePage({ params }: Props) {
             }
           />
         ) : (
-          <div className="grid gap-4">
-            {towns.map((town) => (
-              <Card key={town.town} className="gap-0 py-0">
-                <CardContent className="p-5 md:p-6">
-                  <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1.5">
-                    <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                      <h3 className="text-base font-semibold text-ink">
-                        <Link
-                          href={townHref(town.town)}
-                          className="hover:text-teal-deep"
-                        >
-                          {town.town}
-                        </Link>
-                      </h3>
-                      <span className="text-sm text-muted-foreground">
-                        {town.region}
-                      </span>
-                      {town.classification !== "Unclassified" ? (
-                        <Badge variant="outline" className="font-normal">
-                          {town.classification}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <Link
-                      href={`/projects/${town.projectSlug}`}
-                      className="text-sm font-medium hover:underline"
-                    >
-                      View the {town.town} pool →
-                    </Link>
-                  </div>
-
-                  <div className="mt-4 overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-border/60 text-left text-xs text-muted-foreground">
-                          <th scope="col" className="py-2.5 pr-4 font-medium">
-                            Flat type
-                          </th>
-                          <th scope="col" className="py-2.5 pr-4 font-medium">
-                            Units
-                          </th>
-                          <th scope="col" className="py-2.5 pr-4 font-medium">
-                            Applicants
-                          </th>
-                          <th scope="col" className="py-2.5 font-medium">
-                            Per unit
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-border/60">
-                        {town.rows.map((row) => (
-                          <tr key={row.flatType}>
-                            <td className="py-3 pr-4 font-medium text-ink">
-                              {row.flatType}
-                            </td>
-                            <td className="tnum py-3 pr-4">
-                              {formatCount(row.units)}
-                            </td>
-                            <td className="tnum py-3 pr-4">
-                              {row.applicants !== null ? (
-                                formatCount(row.applicants)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                            <td className="tnum py-3">
-                              {row.applicants !== null && row.units > 0 ? (
-                                (row.applicants / row.units).toFixed(1)
-                              ) : (
-                                <span className="text-muted-foreground">—</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <SbfBoard
+            towns={towns}
+            initialFilters={{
+              town:
+                typeof searchParams.town === "string"
+                  ? searchParams.town
+                  : undefined,
+              flat:
+                typeof searchParams.flat === "string"
+                  ? searchParams.flat
+                  : undefined,
+              sort:
+                typeof searchParams.sort === "string"
+                  ? searchParams.sort
+                  : undefined,
+            }}
+          />
         )}
       </Section>
 

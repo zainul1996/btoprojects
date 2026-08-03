@@ -102,6 +102,8 @@ export const projectSummaryValidator = v.object({
   flatTypes: v.array(flatTypeValidator),
   // Exercise label ("February 2026 SBF") for card-level provenance chips.
   exerciseLabel: v.union(v.string(), v.null()),
+  exerciseStatus: v.union(exerciseStatusValidator, v.null()),
+  exerciseApplicationEnd: v.union(v.string(), v.null()),
 });
 
 export const projectDetailsValidator = v.object({

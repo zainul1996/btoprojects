@@ -51,6 +51,7 @@ type ProjectMapProps = {
   projects: ProjectMapItem[];
   focusedSlug?: string | null;
   onMarkerClick?: (slug: string) => void;
+  onSelectionClear?: () => void;
   className?: string;
   /** Initial zoom only — the map owns zoom after mount. */
   zoom?: number;
@@ -67,6 +68,7 @@ export function ProjectMap({
   projects,
   focusedSlug = null,
   onMarkerClick,
+  onSelectionClear,
   className,
   zoom = 11,
 }: ProjectMapProps) {
@@ -75,9 +77,11 @@ export function ProjectMap({
   const readyRef = useRef(false);
   const markersRef = useRef<Map<string, maplibregl.Marker>>(new Map());
   const popupRef = useRef<maplibregl.Popup | null>(null);
+  const popupSlugRef = useRef<string | null>(null);
   const projectsRef = useRef<ProjectMapItem[]>(projects.filter(hasRealCoords));
   const focusedSlugRef = useRef<string | null>(focusedSlug);
   const onMarkerClickRef = useRef<typeof onMarkerClick>(onMarkerClick);
+  const onSelectionClearRef = useRef<typeof onSelectionClear>(onSelectionClear);
   const fittedIdentityRef = useRef<string | null>(null);
   const initialZoomRef = useRef(zoom);
 
@@ -92,6 +96,10 @@ export function ProjectMap({
   useEffect(() => {
     onMarkerClickRef.current = onMarkerClick;
   }, [onMarkerClick]);
+
+  useEffect(() => {
+    onSelectionClearRef.current = onSelectionClear;
+  }, [onSelectionClear]);
 
   function applyFocus() {
     for (const [slug, marker] of markersRef.current) {
@@ -158,6 +166,7 @@ export function ProjectMap({
       .setLngLat([p.lng, p.lat])
       .setDOMContent(buildPopupContent(p))
       .addTo(map);
+    popupSlugRef.current = p.slug;
   }
 
   function createMarker(p: ProjectMapItem): maplibregl.Marker {
@@ -242,6 +251,13 @@ export function ProjectMap({
       }
     }
 
+    if (popupSlugRef.current && !seen.has(popupSlugRef.current)) {
+      popupRef.current?.remove();
+      popupRef.current = null;
+      popupSlugRef.current = null;
+      onSelectionClearRef.current?.();
+    }
+
     const identity = items
       .map((p) => p.slug)
       .sort()
@@ -286,6 +302,7 @@ export function ProjectMap({
       fittedIdentityRef.current = null;
       popupRef.current?.remove();
       popupRef.current = null;
+      popupSlugRef.current = null;
       for (const marker of markers.values()) marker.remove();
       markers.clear();
       mapRef.current = null;
@@ -304,11 +321,39 @@ export function ProjectMap({
   }, [focusedSlug]);
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("h-full w-full bg-muted", className)}
-      role="application"
-      aria-label="Map of BTO and SBF projects in Singapore"
-    />
+    <div className={cn("relative h-full w-full bg-muted", className)}>
+      <div
+        ref={containerRef}
+        className="h-full w-full"
+        role="application"
+        aria-label="Map of BTO and SBF projects in Singapore"
+      />
+      <div
+        className="pointer-events-none absolute top-3 left-3 z-10 flex flex-wrap gap-x-3 gap-y-1.5 rounded-lg border border-border bg-surface/95 px-3 py-2 text-[11px] font-medium text-ink shadow-sm backdrop-blur-sm"
+        role="group"
+        aria-label="Map legend"
+      >
+        <span className="inline-flex items-center gap-1.5">
+          <span className="bto-map-legend__symbol" aria-hidden />
+          Launched
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="bto-map-legend__symbol"
+            data-variant="announced"
+            aria-hidden
+          />
+          Announced area
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span
+            className="bto-map-legend__symbol"
+            data-variant="sbf"
+            aria-hidden
+          />
+          SBF town
+        </span>
+      </div>
+    </div>
   );
 }

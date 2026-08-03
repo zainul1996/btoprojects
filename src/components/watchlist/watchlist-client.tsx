@@ -32,8 +32,30 @@ export function WatchlistClient({
     return (
       <EmptyState
         icon={Bell}
-        title="Sign in to save places"
-        hint="Follow projects, receive in-app alerts and save private planning preferences."
+        title="Keep your shortlist and planning context together"
+        hint="Sign in to follow projects and towns, receive alerts when official details change, and reuse private planner preferences."
+        details={
+          <dl className="grid divide-y divide-border border-y border-border text-sm sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+            <div className="py-3 sm:px-4 sm:first:pl-0">
+              <dt className="font-medium text-ink">Shortlist</dt>
+              <dd className="mt-1 text-muted-foreground">
+                Return to projects, towns and MRT stations you follow.
+              </dd>
+            </div>
+            <div className="py-3 sm:px-4">
+              <dt className="font-medium text-ink">Alerts</dt>
+              <dd className="mt-1 text-muted-foreground">
+                See official supply, applicant and deadline changes.
+              </dd>
+            </div>
+            <div className="py-3 sm:px-4 sm:last:pr-0">
+              <dt className="font-medium text-ink">Planner</dt>
+              <dd className="mt-1 text-muted-foreground">
+                Reuse your budget, wait and private location preferences.
+              </dd>
+            </div>
+          </dl>
+        }
         action={
           <SignInButton mode="modal">
             <Button>Sign in</Button>

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Fragment, type ReactNode } from "react";
-import { ArrowLeftRight, X } from "lucide-react";
+import { ArrowLeftRight, MoveRight, X } from "lucide-react";
 
 import { CLASSIFICATION_POLICY } from "@/components/compare/policy";
 import { useCompare } from "@/components/compare-tray";
@@ -11,6 +11,7 @@ import { EmptyState } from "@/components/empty-state";
 import { LifecycleChip } from "@/components/lifecycle-chip";
 import { Price, formatSgd } from "@/components/price";
 import type { ProjectSummary } from "@/components/project-card";
+import { formatMonthYear } from "@/components/project/utils";
 import { SourceBadge } from "@/components/source-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button, buttonVariants } from "@/components/ui/button";
@@ -164,7 +165,7 @@ const GROUPS: RowGroup[] = [
         cell: (s) =>
           s.project.estimatedCompletion ? (
             <span className="tnum whitespace-nowrap">
-              {s.project.estimatedCompletion}
+              {formatMonthYear(s.project.estimatedCompletion)}
             </span>
           ) : (
             <span className="text-muted-foreground">TBC</span>
@@ -246,29 +247,64 @@ function computeGiveUps(projects: ProjectSummary[]): Map<string, string[]> {
   for (const s of projects) result.set(s.project.slug, []);
   if (projects.length < 2) return result;
 
-  const metrics: { label: string; value: (s: ProjectSummary) => number | null }[] = [
+  const metrics: {
+    value: (s: ProjectSummary) => number | null;
+    describeDifference: (difference: number) => string;
+  }[] = [
     {
-      label: "The wait",
       value: (s) =>
         s.project.saleType === "sbf"
           ? null
           : s.project.estimatedWaitMonths || null,
+      describeDifference: (difference) =>
+        `${difference} ${difference === 1 ? "month" : "months"} longer wait`,
     },
-    { label: "The price premium", value: fromPriceOf },
-    { label: "The walk to the MRT", value: mrtWalkOf },
+    {
+      value: fromPriceOf,
+      describeDifference: (difference) =>
+        `${formatSgd(difference)} higher entry price`,
+    },
+    {
+      value: mrtWalkOf,
+      describeDifference: (difference) =>
+        `${difference} ${difference === 1 ? "minute" : "minutes"} farther from the MRT`,
+    },
   ];
 
-  for (const { label, value } of metrics) {
+  for (const { value, describeDifference } of metrics) {
     const values = projects.map(value).filter((v): v is number => v !== null);
     if (values.length < 2) continue;
     const max = Math.max(...values);
     const min = Math.min(...values);
     if (max === min) continue;
     for (const s of projects) {
-      if (value(s) === max) result.get(s.project.slug)?.push(label);
+      if (value(s) === max) {
+        result
+          .get(s.project.slug)
+          ?.push(describeDifference(max - min));
+      }
     }
   }
   return result;
+}
+
+function CompareStartSteps() {
+  return (
+    <ol className="grid divide-y divide-border border-y border-border text-sm sm:grid-cols-2 sm:divide-x sm:divide-y-0">
+      <li className="py-3 sm:px-4 sm:first:pl-0">
+        <span className="font-medium text-ink">1. Add an option</span>
+        <p className="mt-1 text-muted-foreground">
+          Use Compare on a project card or project page.
+        </p>
+      </li>
+      <li className="py-3 sm:px-4 sm:last:pr-0">
+        <span className="font-medium text-ink">2. Add another</span>
+        <p className="mt-1 text-muted-foreground">
+          We will line up price, wait, location and restrictions.
+        </p>
+      </li>
+    </ol>
+  );
 }
 
 /** Best value per comparable row; ties share the highlight, all-equal shows none. */
@@ -323,8 +359,9 @@ export function CompareWorkspace({
     return (
       <EmptyState
         icon={ArrowLeftRight}
-        title="Nothing to compare yet"
-        hint="Add projects with the Compare button on any project card."
+        title="Build a side-by-side comparison"
+        hint="Choose two BTO projects or SBF town pools. Your shortlist stays in this browser."
+        details={<CompareStartSteps />}
         action={
           <Link href="/explore" className={buttonVariants()}>
             Find projects
@@ -373,8 +410,9 @@ export function CompareWorkspace({
       {found.length === 0 ? (
         <EmptyState
           icon={ArrowLeftRight}
-          title="Nothing to compare yet"
-          hint="Add projects with the Compare button on any project card."
+          title="No matching projects in this link"
+          hint="The saved project names may have changed. Start a fresh comparison from the project list."
+          details={<CompareStartSteps />}
           action={
             <Link href="/explore" className={buttonVariants()}>
               Find projects
@@ -431,12 +469,31 @@ function CompareTable({
         : "BTO projects";
 
   const firstColClass =
-    "sticky left-0 z-10 w-44 min-w-44 bg-surface border-r border-border";
+    "sticky left-0 z-10 w-32 min-w-32 bg-surface border-r border-border md:w-44 md:min-w-44";
   const cellClass = "border-b border-border/70 px-4 py-3.5 align-top";
 
   return (
-    <div className="max-h-[calc(100svh-7rem)] overflow-auto overscroll-contain rounded-xl border border-border bg-surface">
-      <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
+    <div className="flex flex-col gap-2">
+      {projects.length > 1 ? (
+        <p className="flex items-center gap-2 text-xs font-medium text-muted-foreground md:hidden">
+          Swipe the project columns to compare
+          <MoveRight className="size-4" aria-hidden />
+        </p>
+      ) : null}
+      <div className="relative">
+        {projects.length > 1 ? (
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-40 w-7 bg-linear-to-l from-surface to-transparent md:hidden"
+            aria-hidden
+          />
+        ) : null}
+        <div
+          className="snap-x snap-proximity overflow-x-auto overscroll-x-contain rounded-xl border border-border bg-surface focus-visible:ring-2 focus-visible:ring-ring md:max-h-[calc(100svh-7rem)] md:overflow-auto md:overscroll-contain"
+          role="region"
+          aria-label="Project comparison table. Scroll horizontally for more projects."
+          tabIndex={0}
+        >
+          <table className="w-full min-w-max border-separate border-spacing-0 text-sm">
         <caption className="sr-only">
           Side-by-side comparison of {projects.length} {comparedKinds}
         </caption>
@@ -455,7 +512,7 @@ function CompareTable({
               <th
                 key={project.slug}
                 scope="col"
-                className="sticky top-0 z-20 min-w-56 border-b border-border bg-surface px-4 py-4 text-left align-top font-normal"
+                className="sticky top-0 z-20 min-w-56 snap-start border-b border-border bg-surface px-4 py-4 text-left align-top font-normal"
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1.5">
@@ -537,7 +594,14 @@ function CompareTable({
                           isBest && "bg-teal-subtle/60",
                         )}
                       >
-                        {row.cell(s)}
+                        <div className="flex flex-col gap-2">
+                          {isBest ? (
+                            <Badge variant="secondary" className="font-normal">
+                              Best here
+                            </Badge>
+                          ) : null}
+                          {row.cell(s)}
+                        </div>
                       </td>
                     );
                   })}
@@ -578,7 +642,7 @@ function CompareTable({
                     <span>{items.join(" · ")}</span>
                   ) : (
                     <span className="text-muted-foreground">
-                      No standout trade-off among these
+                      No measured disadvantage in the comparable data available
                     </span>
                   )}
                 </td>
@@ -586,7 +650,9 @@ function CompareTable({
             })}
           </tr>
         </tbody>
-      </table>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

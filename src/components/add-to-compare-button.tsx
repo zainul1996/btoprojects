@@ -9,11 +9,19 @@ import { COMPARE_MAX } from "@/lib/compare";
 
 type AddToCompareButtonProps = {
   slug: string;
+  label?: string;
   size?: "sm" | "default";
+  variant?: "default" | "outline";
   className?: string;
 };
 
-export function AddToCompareButton({ slug, size = "sm", className }: AddToCompareButtonProps) {
+export function AddToCompareButton({
+  slug,
+  label,
+  size = "sm",
+  variant = "outline",
+  className,
+}: AddToCompareButtonProps) {
   const { add, remove, has } = useCompare();
   const added = has(slug);
 
@@ -21,7 +29,7 @@ export function AddToCompareButton({ slug, size = "sm", className }: AddToCompar
     <Button
       type="button"
       size={size}
-      variant={added ? "secondary" : "outline"}
+      variant={added ? "secondary" : variant}
       className={className}
       aria-pressed={added}
       onClick={(event) => {
@@ -32,7 +40,7 @@ export function AddToCompareButton({ slug, size = "sm", className }: AddToCompar
           remove(slug);
           return;
         }
-        const ok = add(slug);
+        const ok = add(slug, label);
         if (!ok) {
           toast(`You can compare up to ${COMPARE_MAX} projects`, {
             description: "Remove one from the tray to add another.",
@@ -42,12 +50,12 @@ export function AddToCompareButton({ slug, size = "sm", className }: AddToCompar
     >
       {added ? (
         <>
-          <Check className="size-3.5 text-teal-deep" aria-hidden />
+          <Check data-icon="inline-start" aria-hidden />
           Added
         </>
       ) : (
         <>
-          <Plus className="size-3.5" aria-hidden />
+          <Plus data-icon="inline-start" aria-hidden />
           Compare
         </>
       )}

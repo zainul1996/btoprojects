@@ -26,6 +26,7 @@ import {
  * (server snapshot is always empty) and no setState-in-effect.
  */
 const EMPTY: string[] = [];
+const COMPARE_LABELS_KEY = `${COMPARE_STORAGE_KEY}:labels`;
 let cachedRaw: string | null = null;
 let cachedSlugs: string[] = EMPTY;
 const listeners = new Set<() => void>();
@@ -59,10 +60,33 @@ function writeSlugs(next: string[]): void {
   for (const listener of listeners) listener();
 }
 
+function readLabels(): Record<string, string> {
+  if (typeof window === "undefined") return {};
+  const raw = window.localStorage.getItem(COMPARE_LABELS_KEY);
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[1] === "string" && entry[1].trim().length > 0,
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+function writeLabels(labels: Record<string, string>): void {
+  window.localStorage.setItem(COMPARE_LABELS_KEY, JSON.stringify(labels));
+}
+
 function subscribe(callback: () => void): () => void {
   listeners.add(callback);
   const onStorage = (event: StorageEvent) => {
-    if (event.key === COMPARE_STORAGE_KEY) callback();
+    if (event.key === COMPARE_STORAGE_KEY || event.key === COMPARE_LABELS_KEY)
+      callback();
   };
   window.addEventListener("storage", onStorage);
   return () => {
@@ -75,7 +99,7 @@ const getServerSnapshot = (): string[] => EMPTY;
 
 type CompareContextValue = {
   slugs: string[];
-  add: (slug: string) => boolean;
+  add: (slug: string, label?: string) => boolean;
   remove: (slug: string) => void;
   clear: () => void;
   has: (slug: string) => boolean;
@@ -87,19 +111,30 @@ const CompareContext = createContext<CompareContextValue | null>(null);
 export function CompareTrayProvider({ children }: { children: ReactNode }) {
   const slugs = useSyncExternalStore(subscribe, readSlugs, getServerSnapshot);
 
-  const add = useCallback((slug: string) => {
+  const add = useCallback((slug: string, label?: string) => {
     const current = readSlugs();
-    if (current.includes(slug)) return true;
+    if (current.includes(slug)) {
+      if (label) writeLabels({ ...readLabels(), [slug]: label });
+      for (const listener of listeners) listener();
+      return true;
+    }
     if (current.length >= COMPARE_MAX) return false;
+    if (label) writeLabels({ ...readLabels(), [slug]: label });
     writeSlugs([...current, slug]);
     return true;
   }, []);
 
   const remove = useCallback((slug: string) => {
+    const labels = readLabels();
+    delete labels[slug];
+    writeLabels(labels);
     writeSlugs(readSlugs().filter((s) => s !== slug));
   }, []);
 
-  const clear = useCallback(() => writeSlugs([]), []);
+  const clear = useCallback(() => {
+    window.localStorage.removeItem(COMPARE_LABELS_KEY);
+    writeSlugs([]);
+  }, []);
 
   const value = useMemo<CompareContextValue>(
     () => ({
@@ -131,6 +166,7 @@ function CompareTray() {
   const { slugs, remove, clear } = useCompare();
 
   if (slugs.length === 0) return null;
+  const labels = readLabels();
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-50 flex justify-center px-4">
@@ -142,11 +178,11 @@ function CompareTray() {
               key={slug}
               className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted py-1 pr-1 pl-2.5 text-xs font-medium text-ink"
             >
-              {prettifySlug(slug)}
+              {labels[slug] ?? prettifySlug(slug)}
               <button
                 type="button"
                 onClick={() => remove(slug)}
-                aria-label={`Remove ${prettifySlug(slug)} from comparison`}
+                aria-label={`Remove ${labels[slug] ?? prettifySlug(slug)} from comparison`}
                 className="grid size-6 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-border hover:text-ink"
               >
                 <X className="size-3" aria-hidden />

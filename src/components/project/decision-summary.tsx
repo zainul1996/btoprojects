@@ -1,144 +1,140 @@
-import { Check } from "lucide-react";
-
-import { Card, CardContent } from "@/components/ui/card";
-import { SourceBadge } from "@/components/source-badge";
 import { formatSgd } from "@/components/price";
+import { SourceBadge } from "@/components/source-badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 import { fromPrice, type ProjectDetails } from "./utils";
 
-/**
- * "Who this suits" — honest derivations from the data, never hype.
- * Every bullet traces to a stored fact; nothing about ballot odds (guardrail:
- * no odds claims). Labelled analysis, because it is interpretation.
- */
-function suitBullets(details: ProjectDetails): string[] {
-  const { project, town, flatTypes } = details;
-  const entry = fromPrice(flatTypes);
-  const townName = town?.name ?? project.region;
-  const bullets: string[] = [];
+type DecisionFact = {
+  label: string;
+  value: string;
+};
 
-  // 0 means "timeline TBC" (announced) — never quote it as a short wait.
-  if (project.estimatedWaitMonths > 0 && project.estimatedWaitMonths <= 30) {
-    bullets.push(
-      `Buyers who need keys sooner: the estimated wait is ~${project.estimatedWaitMonths} months, shorter than most recent launches.`,
-    );
-  }
-  if (project.classification === "Prime") {
-    bullets.push(
-      "Owner-occupiers comfortable with a 10-year MOP and a subsidy clawback on resale.",
-    );
-  } else if (project.classification === "Plus") {
-    bullets.push(
-      "Households who want a central-ish location and accept moderate resale restrictions.",
-    );
-  } else if (entry !== null && entry <= 400_000) {
-    bullets.push(
-      `Budget-first households: Standard-class flats from ${formatSgd(entry)} before grants.`,
-    );
-  } else {
-    bullets.push(
-      "Buyers who want standard BTO terms: a 5-year MOP and no resale clawback.",
-    );
-  }
-  if (project.mrtWalkingMinutes > 0 && project.mrtWalkingMinutes <= 7 && project.nearestMrt.length > 0) {
-    bullets.push(
-      `Commuters: about a ${project.mrtWalkingMinutes}-minute walk to ${project.nearestMrt[0]}.`,
-    );
-  }
-  if (flatTypes.some((f) => f.type === "3Gen")) {
-    bullets.push("Multi-generation families: 3Gen flats are on offer.");
-  }
-  if (flatTypes.some((f) => f.type === "2-room Flexi")) {
-    bullets.push("Singles and smaller households: 2-room Flexi flats are on offer.");
-  }
-  if (project.totalUnits >= 900) {
-    bullets.push(
-      `Applicants who prefer a larger site: ${project.totalUnits.toLocaleString("en-SG")} units in one launch.`,
-    );
-  }
-  if (bullets.length < 3) {
-    bullets.push(`Households set on ${townName} for family, work or familiarity.`);
-  }
-  return bullets.slice(0, 3);
+function flatMix(details: ProjectDetails): string {
+  const types = details.flatTypes.map((flat) => flat.type);
+  return types.length > 0 ? types.join(", ") : "Flat types to be confirmed";
 }
 
-/** SBF pools: who a town pool suits, from pool semantics rather than prices. */
-function sbfSuitBullets(details: ProjectDetails): string[] {
-  const { project, town, flatTypes } = details;
-  const townName = town?.name ?? project.region;
-  const bullets = [
-    "Buyers flexible on timing: completion and key collection vary by individual flat.",
-    `Households set on ${townName}: you apply for the town pool, not a specific block.`,
-  ];
-  if (flatTypes.some((f) => f.type === "2-room Flexi")) {
-    bullets.push("Singles and smaller households: 2-room Flexi flats are on offer.");
+function priceAndTiming(details: ProjectDetails): string {
+  const { project, flatTypes } = details;
+  if (project.saleType === "sbf") {
+    return "Price and key timing vary by individual flat";
   }
-  if (flatTypes.some((f) => f.type === "3Gen")) {
-    bullets.push("Multi-generation families: 3Gen flats are on offer.");
+
+  const price = fromPrice(flatTypes);
+  const parts: string[] = [];
+  if (price !== null) parts.push(`From ${formatSgd(price)} before grants`);
+  if (project.estimatedWaitMonths > 0) {
+    parts.push(`about ${project.estimatedWaitMonths} months to keys`);
   }
-  if (bullets.length < 3) {
-    bullets.push(
-      "Applicants willing to assess each offered flat rather than compare one pool-wide wait.",
-    );
-  }
-  return bullets.slice(0, 3);
+  return parts.length > 0 ? parts.join("; ") : "Price and timeline to be confirmed";
 }
 
-function sbfKeyCompromise(details: ProjectDetails): string {
+function accessSummary(details: ProjectDetails): string {
   const { project, town } = details;
-  const townName = town?.name ?? project.region;
-  return `No picking a block or stack: within the ${townName} pool, block, remaining lease, price and completion timing vary per flat.`;
+  const station = project.nearestMrt[0];
+  if (station && project.mrtWalkingMinutes > 0) {
+    return `About ${project.mrtWalkingMinutes} minutes on foot to ${station}`;
+  }
+  if (station) return `Near ${station}; walking time is not confirmed`;
+  return `${town?.name ?? project.region}, ${project.region} region`;
 }
 
-/** The one honest trade-off, picked by severity from the data. */
-function keyCompromise(details: ProjectDetails): string {
+function rulesSummary(details: ProjectDetails): string {
+  const { project } = details;
+  if (project.saleType === "sbf") {
+    return "Lease, classification and resale rules vary by individual flat";
+  }
+  if (
+    project.classification === "Prime" ||
+    project.classification === "Plus"
+  ) {
+    return "10-year MOP, subsidy recovery and tighter resale conditions";
+  }
+  if (project.classification === "Standard") {
+    return "5-year MOP; prevailing resale rules apply";
+  }
+  return "Classification rules to be confirmed";
+}
+
+function decisionFacts(details: ProjectDetails): DecisionFact[] {
+  return [
+    { label: "Price and timing", value: priceAndTiming(details) },
+    { label: "Access", value: accessSummary(details) },
+    { label: "Homes available", value: flatMix(details) },
+    { label: "Rules to weigh", value: rulesSummary(details) },
+  ];
+}
+
+function keyTradeOff(details: ProjectDetails): string {
   const { project, town, flatTypes } = details;
   const entry = fromPrice(flatTypes);
   const townName = town?.name ?? project.region;
 
+  if (project.saleType === "sbf") {
+    return `You apply for the ${townName} town pool, not a specific block. Price, lease and key timing depend on the flat offered.`;
+  }
   if (project.estimatedWaitMonths >= 48) {
-    return `A long wait: estimated ~${project.estimatedWaitMonths} months to key collection.`;
+    return `The estimated wait is about ${project.estimatedWaitMonths} months to key collection.`;
   }
   if (entry !== null && entry >= 550_000) {
-    return `Entry prices are high for a BTO: from ${formatSgd(entry)} before grants.`;
+    return `The published starting price is ${formatSgd(entry)} before grants.`;
   }
   if (project.mrtWalkingMinutes >= 10) {
-    return `The nearest MRT is about a ${project.mrtWalkingMinutes}-minute walk away.`;
+    return `The nearest MRT is about ${project.mrtWalkingMinutes} minutes away on foot.`;
   }
-  if (project.classification !== "Standard") {
-    return `${project.classification}-class rules apply at resale: a longer MOP and tighter conditions than Standard flats.`;
+  if (
+    project.classification === "Plus" ||
+    project.classification === "Prime"
+  ) {
+    return `${project.classification} resale rules are tighter than Standard flat rules.`;
   }
-  if (project.region !== "Central") {
-    return `${townName} sits outside the central region. Weigh commute times.`;
-  }
-  return "Nothing unusual for its class. Weigh price, wait and location against your plans.";
+  return "No single issue dominates. Compare price, wait and location with another option.";
 }
 
 export function DecisionSummary({ details }: { details: ProjectDetails }) {
-  const isSbf = details.project.saleType === "sbf";
-  const bullets = isSbf ? sbfSuitBullets(details) : suitBullets(details);
-  const compromise = isSbf ? sbfKeyCompromise(details) : keyCompromise(details);
+  const facts = decisionFacts(details);
 
   return (
     <Card>
-      <CardContent className="space-y-4 p-5 md:p-6">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-base font-semibold text-ink">Who this suits</h3>
+      <CardHeader className="border-b">
+        <CardTitle>
+          <h3>What stands out</h3>
+        </CardTitle>
+        <CardDescription>
+          Facts from the current project record, followed by one labelled
+          trade-off.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <dl className="grid gap-4 sm:grid-cols-2">
+          {facts.map((fact) => (
+            <div key={fact.label} className="border-l-2 border-border pl-3">
+              <dt className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                {fact.label}
+              </dt>
+              <dd className="mt-1 text-sm leading-relaxed text-ink">
+                {fact.value}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      </CardContent>
+      <CardFooter className="flex-col items-start gap-1.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
+            Key trade-off
+          </p>
           <SourceBadge variant="analysis" size="sm" />
         </div>
-        <ul className="space-y-2.5">
-          {bullets.map((bullet) => (
-            <li key={bullet} className="flex items-start gap-2.5 text-sm">
-              <Check className="mt-0.5 size-4 shrink-0 text-teal-deep" aria-hidden />
-              <span>{bullet}</span>
-            </li>
-          ))}
-        </ul>
-        <p className="border-t border-border/60 pt-3 text-sm">
-          <span className="font-medium text-ink">Key compromise: </span>
-          <span className="text-muted-foreground">{compromise}</span>
-        </p>
-      </CardContent>
+        <p className="text-sm text-ink">{keyTradeOff(details)}</p>
+      </CardFooter>
     </Card>
   );
 }

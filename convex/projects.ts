@@ -31,7 +31,14 @@ async function attachTownAndFlatTypes(
       .collect(),
     ctx.db.get("exercises", project.exerciseId),
   ]);
-  return { project, town, flatTypes, exerciseLabel: exercise?.label ?? null };
+  return {
+    project,
+    town,
+    flatTypes,
+    exerciseLabel: exercise?.label ?? null,
+    exerciseStatus: exercise?.status ?? null,
+    exerciseApplicationEnd: exercise?.applicationEnd ?? null,
+  };
 }
 
 export const list = query({

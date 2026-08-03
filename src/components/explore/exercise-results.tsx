@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { FunctionReturnType } from "convex/server";
+import { ChevronDown } from "lucide-react";
 
 import { api } from "../../../convex/_generated/api";
 import {
@@ -59,6 +60,8 @@ export function ExerciseResults({
       {sections.map(({ exercise, projects }) => {
         const isSbf = exercise.type === "sbf";
         const effectiveStatus = effectiveExerciseStatus(exercise, today);
+        const preview = projects.slice(0, 3);
+        const remaining = projects.slice(3);
         return (
           <section
             key={exercise._id}
@@ -90,10 +93,37 @@ export function ExerciseResults({
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {projects.map((summary) => (
-                <ProjectCard key={summary.project._id} summary={summary} />
+              {preview.map((summary) => (
+                <ProjectCard
+                  key={summary.project._id}
+                  summary={summary}
+                  context="exercise"
+                />
               ))}
             </div>
+            {remaining.length > 0 ? (
+              <details className="group/disclosure">
+                <summary className="flex min-h-11 w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg px-1 text-sm font-medium text-teal-deep focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
+                  Show {remaining.length} more{" "}
+                  {isSbf
+                    ? `town pool${remaining.length === 1 ? "" : "s"}`
+                    : `project${remaining.length === 1 ? "" : "s"}`}
+                  <ChevronDown
+                    className="size-4 transition-transform group-open/disclosure:rotate-180"
+                    aria-hidden
+                  />
+                </summary>
+                <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {remaining.map((summary) => (
+                    <ProjectCard
+                      key={summary.project._id}
+                      summary={summary}
+                      context="exercise"
+                    />
+                  ))}
+                </div>
+              </details>
+            ) : null}
           </section>
         );
       })}

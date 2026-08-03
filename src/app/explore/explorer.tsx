@@ -234,7 +234,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
       closed: 0,
     };
     for (const r of statusBase) {
-      counts[applicationStatusOf(r.project, today)] += 1;
+      counts[
+        applicationStatusOf(r.project, today, {
+          status: r.exerciseStatus,
+          applicationEnd: r.exerciseApplicationEnd,
+        })
+      ] += 1;
     }
     return counts;
   }, [statusBase, today]);
@@ -244,7 +249,11 @@ export function Explorer({ initialParams }: ExplorerProps) {
     const narrowed = (
       filters.status
         ? statusBase.filter(
-            (r) => applicationStatusOf(r.project, today) === filters.status,
+            (r) =>
+              applicationStatusOf(r.project, today, {
+                status: r.exerciseStatus,
+                applicationEnd: r.exerciseApplicationEnd,
+              }) === filters.status,
           )
         : [...statusBase]
     );
@@ -295,19 +304,21 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const chips = activeFilterChips(filters);
   const isMap = filters.view === "map";
   const isExercise = filters.view === "exercise";
-  const showMap = isMap && visible?.length !== 0;
+  const showMap = isMap && visible !== undefined && visible.length > 0;
 
   const handleMarkerClick = (slug: string) => {
     setFocusedSlug(slug);
-    cardRefs.current
-      .get(slug)
-      ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    if (window.matchMedia("(min-width: 1024px)").matches) {
+      cardRefs.current
+        .get(slug)
+        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
   };
 
   const resultHeader = (
     <div
       className={cn(
-        "sticky top-14 z-30 space-y-2 border-b border-border bg-background/95 px-4 pt-3 pb-16 backdrop-blur-sm sm:py-3",
+        "sticky top-14 z-30 flex flex-col gap-2 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-sm",
         isMap && "lg:top-0",
       )}
     >
@@ -356,7 +367,9 @@ export function Explorer({ initialParams }: ExplorerProps) {
                 render={<Button className="w-full" />}
                 aria-label="Close filters and show results"
               >
-                Show results
+                {visible === undefined
+                  ? "Show results"
+                  : `Show ${resultCountLabel(visible)}`}
               </SheetClose>
             </div>
           </SheetContent>
@@ -372,8 +385,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
           )}
         </div>
 
-        <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
-          {!isExercise ? (
+        {!isExercise ? (
+          <div className="ml-auto">
             <Select
               items={SORT_ITEMS}
               value={filters.sort}
@@ -396,48 +409,48 @@ export function Explorer({ initialParams }: ExplorerProps) {
                 ))}
               </SelectContent>
             </Select>
-          ) : null}
-
-          <div
-            role="group"
-            aria-label="Results view"
-            className="absolute right-4 bottom-3 left-4 flex items-center rounded-lg border border-border bg-background p-0.5 sm:static lg:w-full lg:justify-center"
-          >
-            <Button
-              type="button"
-              variant={isMap ? "secondary" : "ghost"}
-              size="sm"
-              className="flex-1 sm:flex-none"
-              aria-pressed={isMap}
-              onClick={() => patch({ view: "map" })}
-            >
-              <MapIcon aria-hidden />
-              <span>Map</span>
-            </Button>
-            <Button
-              type="button"
-              variant={filters.view === "list" ? "secondary" : "ghost"}
-              size="sm"
-              className="flex-1 sm:flex-none"
-              aria-pressed={filters.view === "list"}
-              onClick={() => patch({ view: "list" })}
-            >
-              <List aria-hidden />
-              <span>List</span>
-            </Button>
-            <Button
-              type="button"
-              variant={isExercise ? "secondary" : "ghost"}
-              size="sm"
-              className="flex-1 sm:flex-none"
-              aria-pressed={isExercise}
-              onClick={() => patch({ view: "exercise" })}
-            >
-              <CalendarRange aria-hidden />
-              <span>By exercise</span>
-            </Button>
           </div>
-        </div>
+        ) : null}
+      </div>
+
+      <div
+        role="group"
+        aria-label="Results view"
+        className="flex w-full items-center rounded-lg border border-border bg-background p-0.5 lg:justify-center"
+      >
+        <Button
+          type="button"
+          variant={isMap ? "secondary" : "ghost"}
+          size="sm"
+          className="flex-1 lg:flex-none"
+          aria-pressed={isMap}
+          onClick={() => patch({ view: "map" })}
+        >
+          <MapIcon aria-hidden />
+          <span>Map</span>
+        </Button>
+        <Button
+          type="button"
+          variant={filters.view === "list" ? "secondary" : "ghost"}
+          size="sm"
+          className="flex-1 lg:flex-none"
+          aria-pressed={filters.view === "list"}
+          onClick={() => patch({ view: "list" })}
+        >
+          <List aria-hidden />
+          <span>List</span>
+        </Button>
+        <Button
+          type="button"
+          variant={isExercise ? "secondary" : "ghost"}
+          size="sm"
+          className="flex-1 lg:flex-none"
+          aria-pressed={isExercise}
+          onClick={() => patch({ view: "exercise" })}
+        >
+          <CalendarRange aria-hidden />
+          <span>By exercise</span>
+        </Button>
       </div>
 
       {chips.length > 0 ? (
@@ -564,7 +577,7 @@ export function Explorer({ initialParams }: ExplorerProps) {
           )}
         >
           {resultHeader}
-          <div className="order-3 lg:contents">
+          <div className={cn("order-3 lg:contents", showMap && "hidden lg:contents")}>
             {isExercise ? exerciseContent : resultList}
           </div>
         </section>
@@ -572,11 +585,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
         {/* A zero-result map is omitted: the teaching empty state carries more
             information than a blank island view. */}
         {showMap ? (
-          <div className="order-2 h-[42svh] min-h-72 lg:order-3 lg:h-[calc(100svh-8rem)] lg:min-h-0 lg:flex-1">
+          <div className="relative order-2 h-[calc(100svh-16.25rem)] min-h-[26rem] lg:order-3 lg:h-[calc(100svh-8rem)] lg:min-h-0 lg:flex-1">
             <ProjectMap
               projects={mapItems}
               focusedSlug={focusedSlug}
               onMarkerClick={handleMarkerClick}
+              onSelectionClear={() => setFocusedSlug(null)}
             />
           </div>
         ) : null}

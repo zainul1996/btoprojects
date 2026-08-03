@@ -7,7 +7,6 @@ import { MapPin } from "lucide-react";
 import { api } from "../../../../../convex/_generated/api";
 import { EmptyState } from "@/components/empty-state";
 import { ProjectCard } from "@/components/project-card";
-import { SbfPoolCard } from "@/components/project/sbf-pool-card";
 import { decodeTownParam, townHref } from "@/components/project/utils";
 import { Section } from "@/components/section";
 import { Badge } from "@/components/ui/badge";
@@ -148,7 +147,7 @@ export default async function TownPage({ params }: Props) {
           <span className="text-ink">{resolvedName}</span>
         </nav>
 
-        <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
           <div className="min-w-0 space-y-2.5">
             <h1>{heading}</h1>
             <div className="flex flex-wrap items-center gap-2">
@@ -160,6 +159,16 @@ export default async function TownPage({ params }: Props) {
               </span>
             </div>
           </div>
+        </div>
+
+        <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="font-medium text-ink">Get {resolvedName} updates</p>
+            <p className="mt-0.5 max-w-2xl text-sm text-muted-foreground">
+              We&apos;ll alert you when a project launches or official details
+              change.
+            </p>
+          </div>
           <WatchButton
             targetType="town"
             targetId={resolvedName}
@@ -168,11 +177,6 @@ export default async function TownPage({ params }: Props) {
             className="shrink-0 border border-border bg-background px-3 hover:bg-muted"
           />
         </div>
-
-        <p className="max-w-2xl text-base text-muted-foreground">
-          Follow {resolvedName} and we&apos;ll alert you when a project
-          launches here or official details change.
-        </p>
       </header>
 
       {projects.length === 0 ? (
@@ -181,12 +185,9 @@ export default async function TownPage({ params }: Props) {
           title={`No projects in ${resolvedName} yet`}
           hint={`Watch ${resolvedName} to hear when one launches.`}
           action={
-            <WatchButton
-              targetType="town"
-              targetId={resolvedName}
-              label={resolvedName}
-              size="default"
-            />
+            <Link href="/explore" className="text-sm font-medium text-teal-deep hover:underline">
+              Browse all projects
+            </Link>
           }
         />
       ) : (
@@ -195,7 +196,11 @@ export default async function TownPage({ params }: Props) {
             <Section title={`BTO projects in ${resolvedName}`}>
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {btoProjects.map((summary) => (
-                  <ProjectCard key={summary.project._id} summary={summary} />
+                  <ProjectCard
+                    key={summary.project._id}
+                    summary={summary}
+                    context="town"
+                  />
                 ))}
               </div>
             </Section>
@@ -208,10 +213,10 @@ export default async function TownPage({ params }: Props) {
             >
               <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {sbfProjects.map((summary) => (
-                  <SbfPoolCard
+                  <ProjectCard
                     key={summary.project._id}
                     summary={summary}
-                    exerciseLabel={summary.exerciseLabel ?? undefined}
+                    context="town"
                   />
                 ))}
               </div>

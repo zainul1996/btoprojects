@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { fetchQuery } from "convex/nextjs";
-import { Info, Sparkles } from "lucide-react";
+import { Info, MessageCircleQuestion } from "lucide-react";
 
 import { api } from "../../../../convex/_generated/api";
 import { AddToCompareButton } from "@/components/add-to-compare-button";
@@ -132,20 +132,30 @@ export default async function ProjectPage({ params }: Props) {
               ) : null}
             </div>
           </div>
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:w-auto">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+            <AddToCompareButton
+              slug={project.slug}
+              label={project.name}
+              size="default"
+              variant="default"
+              className="col-span-2 w-full sm:col-span-1 sm:w-auto"
+            />
             <WatchButton
               targetType="project"
               targetId={project.slug}
               label={project.name}
               size="default"
+              className="w-full sm:w-auto"
             />
-            <AddToCompareButton slug={project.slug} size="default" />
             <Link
               href={`/planner?prompt=${encodeURIComponent(plannerPrompt)}`}
-              className={cn(buttonVariants(), "w-full sm:w-auto")}
+              className={cn(
+                buttonVariants({ variant: "ghost" }),
+                "w-full sm:w-auto",
+              )}
             >
-              <Sparkles aria-hidden />
-              Ask AI about this
+              <MessageCircleQuestion data-icon="inline-start" aria-hidden />
+              Ask the planner
             </Link>
           </div>
         </div>
@@ -192,8 +202,8 @@ export default async function ProjectPage({ params }: Props) {
       </header>
 
       <Section
-        title="Decision summary"
-        description="Our read of who this project fits, derived from the facts below."
+        title="At a glance"
+        description="The price, timeline, access and rules that matter most for this decision."
       >
         <DecisionSummary details={details} />
       </Section>

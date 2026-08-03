@@ -105,12 +105,14 @@ export function latestRetrievedAt(details: ProjectDetails): number {
   return max || details.project.updatedAt;
 }
 
-/** Lowest flat-type entry price for a project, or null when unpriced. */
+/** Lowest positive flat-type entry price, or null when prices are unpublished. */
 export function fromPrice(
   flatTypes: { minPrice: number }[],
 ): number | null {
-  if (flatTypes.length === 0) return null;
-  return Math.min(...flatTypes.map((f) => f.minPrice));
+  const published = flatTypes
+    .map((flat) => flat.minPrice)
+    .filter((price) => price > 0);
+  return published.length > 0 ? Math.min(...published) : null;
 }
 
 /** Monthly instalment for a fixed-rate amortising loan. */
