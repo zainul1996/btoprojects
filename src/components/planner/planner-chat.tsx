@@ -197,19 +197,24 @@ export function PlannerChat() {
         keyboardHeight === null ? undefined : { height: keyboardHeight }
       }
       className={cn(
-        // dvh (not svh): the composer tracks the bottom edge as mobile browser
-        // chrome shows/hides; 3.5rem is the sticky site header (h-14).
-        "mx-auto flex h-[calc(100dvh-3.5rem)] w-full max-w-3xl flex-col px-4 md:px-6",
+        // Fills <main> exactly (the app shell viewport-locks the planner
+        // route); the chat scroll region below is the page's only scroller.
+        "flex h-full w-full flex-col",
         // Clearing the compare tray is pointless while the keyboard covers it.
         traySlugs.length > 0 && keyboardHeight === null && "pb-20",
       )}
     >
       <div className="relative min-h-0 flex-1">
+        {/* Full-bleed scroll region: wheeling over the side gutters scrolls
+            the conversation too; the content column stays centered inside. */}
         <div
           ref={scrollRef}
           className="h-full overflow-y-auto overscroll-contain"
         >
-          <div ref={contentRef} className="pb-8">
+          <div
+            ref={contentRef}
+            className="mx-auto w-full max-w-3xl px-4 pb-8 md:px-6"
+          >
             {!hydrated ? null : messages.length === 0 ? (
               <div>
                 <PageHeader
@@ -306,69 +311,71 @@ export function PlannerChat() {
         )}
       </div>
 
-      <div className="-mx-4 border-t border-border bg-paper/95 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm md:-mx-6 md:px-6">
-        <div className="flex items-end gap-2">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(event) => setInput(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter" && !event.shiftKey) {
-                event.preventDefault();
-                send(input);
-              }
-            }}
-            placeholder={wideComposer ? PLACEHOLDER_FULL : PLACEHOLDER_SHORT}
-            aria-label="Message the planner"
-            enterKeyHint="send"
-            rows={1}
-            className="max-h-40 min-h-11 flex-1 resize-none bg-surface"
-          />
-          {pending ? (
-            <Button
-              size="icon-lg"
-              variant="outline"
-              aria-label="Stop generating"
-              onClick={() => void stop()}
-            >
-              <Square aria-hidden />
-            </Button>
-          ) : (
-            <Button
-              size="icon-lg"
-              aria-label="Send message"
-              disabled={input.trim().length === 0}
-              onClick={() => send(input)}
-            >
-              <SendHorizonal aria-hidden />
-            </Button>
-          )}
-        </div>
-        <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
-          <Show when="signed-out">
-            <p className="flex items-center gap-1">
-              <SignInButton mode="modal">
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto px-0 py-2 text-xs md:py-0"
-                >
-                  Sign in
-                </Button>
-              </SignInButton>
-              to save your planner history
-            </p>
-          </Show>
-          {messages.length > 0 && (
-            <Button
-              variant="link"
-              size="sm"
-              onClick={newChat}
-              className="ml-auto h-auto px-0 py-2 text-xs text-muted-foreground hover:text-ink md:py-0"
-            >
-              New chat
-            </Button>
-          )}
+      <div className="border-t border-border bg-paper/95 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] backdrop-blur-sm">
+        <div className="mx-auto w-full max-w-3xl px-4 md:px-6">
+          <div className="flex items-end gap-2">
+            <Textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(event) => setInput(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  send(input);
+                }
+              }}
+              placeholder={wideComposer ? PLACEHOLDER_FULL : PLACEHOLDER_SHORT}
+              aria-label="Message the planner"
+              enterKeyHint="send"
+              rows={1}
+              className="max-h-40 min-h-11 flex-1 resize-none bg-surface"
+            />
+            {pending ? (
+              <Button
+                size="icon-lg"
+                variant="outline"
+                aria-label="Stop generating"
+                onClick={() => void stop()}
+              >
+                <Square aria-hidden />
+              </Button>
+            ) : (
+              <Button
+                size="icon-lg"
+                aria-label="Send message"
+                disabled={input.trim().length === 0}
+                onClick={() => send(input)}
+              >
+                <SendHorizonal aria-hidden />
+              </Button>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 text-xs text-muted-foreground">
+            <Show when="signed-out">
+              <p className="flex items-center gap-1">
+                <SignInButton mode="modal">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto px-0 py-2 text-xs md:py-0"
+                  >
+                    Sign in
+                  </Button>
+                </SignInButton>
+                to save your planner history
+              </p>
+            </Show>
+            {messages.length > 0 && (
+              <Button
+                variant="link"
+                size="sm"
+                onClick={newChat}
+                className="ml-auto h-auto px-0 py-2 text-xs text-muted-foreground hover:text-ink md:py-0"
+              >
+                New chat
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import "./globals.css";
 import { CompareTrayProvider } from "@/components/compare-tray";
 import { ConvexClientProvider } from "@/components/ConvexClientProvider";
 import { PlannerChatProvider } from "@/components/planner/planner-chat-provider";
+import { AppShell } from "@/components/shell/app-shell";
 import { SiteFooter } from "@/components/shell/site-footer";
 import { SiteHeader } from "@/components/shell/site-header";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -42,9 +43,9 @@ export default function RootLayout({
             <TooltipProvider>
               <CompareTrayProvider>
                 <PlannerChatProvider>
-                  <SiteHeader />
-                  <main className="min-h-svh">{children}</main>
-                  <SiteFooter />
+                  <AppShell header={<SiteHeader />} footer={<SiteFooter />}>
+                    {children}
+                  </AppShell>
                 </PlannerChatProvider>
               </CompareTrayProvider>
             </TooltipProvider>
