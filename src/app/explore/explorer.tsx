@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname, useRouter } from "next/navigation";
 import { useQuery } from "convex/react";
@@ -30,6 +30,25 @@ import {
   type StatusCounts,
 } from "@/components/explore/filter-model";
 import { EmptyState } from "@/components/empty-state";
+import {
+  parseHawkerDataset,
+  type HawkerDataset,
+} from "@/components/map/hawker-data";
+import { MapLayerControl } from "@/components/map/map-layer-control";
+import { MapProjectSelection } from "@/components/map/map-project-selection";
+import {
+  parseParkDataset,
+  type ParkDataset,
+} from "@/components/map/park-data";
+import {
+  parsePrimarySchoolDataset,
+  type PrimarySchoolDataset,
+} from "@/components/map/school-data";
+import {
+  parseTrainStationDataset,
+  type TrainStationDataset,
+} from "@/components/map/train-data";
+import { useMapLayers } from "@/components/map/use-map-layers";
 import {
   ProjectCard,
   shortExerciseLabel,
@@ -97,6 +116,53 @@ function resultCountLabel(items: ProjectSummary[]): string {
   return parts.length > 0 ? parts.join(" · ") : "0 results";
 }
 
+type StaticDatasetState<T> = {
+  data: T | null;
+  status: "idle" | "loading" | "ready" | "error";
+  retry: () => void;
+};
+
+function useStaticMapDataset<T>(
+  enabled: boolean,
+  url: string,
+  parse: (value: unknown) => T,
+): StaticDatasetState<T> {
+  const [data, setData] = useState<T | null>(null);
+  const [status, setStatus] = useState<StaticDatasetState<T>["status"]>(
+    "idle",
+  );
+  const [attempt, setAttempt] = useState(0);
+
+  useEffect(() => {
+    if (!enabled || data) return;
+    const controller = new AbortController();
+    queueMicrotask(() => setStatus("loading"));
+    void fetch(url, { signal: controller.signal, cache: "force-cache" })
+      .then((response) => {
+        if (!response.ok) throw new Error(`${url} returned ${response.status}`);
+        return response.json() as Promise<unknown>;
+      })
+      .then((value) => {
+        setData(parse(value));
+        setStatus("ready");
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setStatus("error");
+      });
+
+    return () => controller.abort();
+  }, [attempt, data, enabled, parse, url]);
+
+  const retry = useCallback(() => {
+    setData(null);
+    setStatus("loading");
+    setAttempt((current) => current + 1);
+  }, []);
+
+  return { data, status, retry };
+}
+
 function CardSkeleton() {
   return (
     <div
@@ -137,8 +203,9 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const [filters, setFilters] = useState<ExplorerFilters>(() =>
     parseExplorerParams(initialParams),
   );
-  const [focusedSlug, setFocusedSlug] = useState<string | null>(null);
-  const cardRefs = useRef(new Map<string, HTMLDivElement | null>());
+  const [selectedSlug, setSelectedSlug] = useState<string | null>(null);
+  const [hoveredSlug, setHoveredSlug] = useState<string | null>(null);
+  const [mapLayers, setMapLayers] = useMapLayers();
 
   // Search is debounced (300ms) for both the query and the URL; every other
   // filter applies immediately.
@@ -189,6 +256,26 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const exerciseRows = useQuery(
     api.exercises.list,
     filters.view === "exercise" ? {} : "skip",
+  );
+  const trainStations = useStaticMapDataset<TrainStationDataset>(
+    filters.view === "map" && mapLayers.mrt,
+    "/data/amenities/train-stations.json",
+    parseTrainStationDataset,
+  );
+  const hawkerCentres = useStaticMapDataset<HawkerDataset>(
+    filters.view === "map" && mapLayers.hawker,
+    "/data/amenities/hawker-centres.json",
+    parseHawkerDataset,
+  );
+  const parks = useStaticMapDataset<ParkDataset>(
+    filters.view === "map" && mapLayers.parks,
+    "/data/amenities/parks.json",
+    parseParkDataset,
+  );
+  const primarySchools = useStaticMapDataset<PrimarySchoolDataset>(
+    filters.view === "map" && mapLayers.primarySchools,
+    "/data/amenities/primary-schools.json",
+    parsePrimarySchoolDataset,
   );
 
   // Status and sale type are client-side UI filters (status depends on
@@ -305,14 +392,18 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const isMap = filters.view === "map";
   const isExercise = filters.view === "exercise";
   const showMap = isMap && visible !== undefined && visible.length > 0;
+  const focusedSlug = hoveredSlug ?? selectedSlug;
+  const selectedSummary = useMemo(
+    () =>
+      selectedSlug && visible
+        ? (visible.find((summary) => summary.project.slug === selectedSlug) ??
+          null)
+        : null,
+    [selectedSlug, visible],
+  );
 
   const handleMarkerClick = (slug: string) => {
-    setFocusedSlug(slug);
-    if (window.matchMedia("(min-width: 1024px)").matches) {
-      cardRefs.current
-        .get(slug)
-        ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    setSelectedSlug(slug);
   };
 
   const resultHeader = (
@@ -453,6 +544,14 @@ export function Explorer({ initialParams }: ExplorerProps) {
         </Button>
       </div>
 
+      {showMap && selectedSummary ? (
+        <MapProjectSelection
+          summary={selectedSummary}
+          onClose={() => setSelectedSlug(null)}
+          className="mt-1 hidden shadow-none lg:block"
+        />
+      ) : null}
+
       {chips.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1.5">
           {chips.map((chip) => (
@@ -505,11 +604,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
         visible.map((summary) => (
           <div
             key={summary.project.slug}
-            ref={(el) => {
-              cardRefs.current.set(summary.project.slug, el);
-            }}
-            onMouseEnter={() => setFocusedSlug(summary.project.slug)}
-            onMouseLeave={() => setFocusedSlug(null)}
+            onMouseEnter={() => setHoveredSlug(summary.project.slug)}
+            onMouseLeave={() => setHoveredSlug(null)}
           >
             <ProjectCard
               summary={summary}
@@ -585,13 +681,64 @@ export function Explorer({ initialParams }: ExplorerProps) {
         {/* A zero-result map is omitted: the teaching empty state carries more
             information than a blank island view. */}
         {showMap ? (
-          <div className="relative order-2 h-[calc(100svh-16.25rem)] min-h-[26rem] lg:order-3 lg:h-[calc(100svh-8rem)] lg:min-h-0 lg:flex-1">
+          <div
+            className="relative order-2 h-[calc(100svh-19.5rem)] min-h-[27rem] lg:order-3 lg:h-[calc(100svh-8rem)] lg:min-h-0 lg:flex-1"
+            data-has-selection={selectedSummary ? "true" : "false"}
+          >
             <ProjectMap
               projects={mapItems}
+              mrtStations={trainStations.data?.items ?? []}
+              showMrtStations={mapLayers.mrt}
+              hawkerCentres={hawkerCentres.data?.items ?? []}
+              showHawkerCentres={mapLayers.hawker}
+              parks={parks.data?.items ?? []}
+              showParks={mapLayers.parks}
+              primarySchools={primarySchools.data?.items ?? []}
+              showPrimarySchools={mapLayers.primarySchools}
               focusedSlug={focusedSlug}
               onMarkerClick={handleMarkerClick}
-              onSelectionClear={() => setFocusedSlug(null)}
+              onSelectionClear={() => setSelectedSlug(null)}
             />
+            <MapLayerControl
+              mrtEnabled={mapLayers.mrt}
+              onMrtEnabledChange={(mrt) =>
+                setMapLayers((current) => ({ ...current, mrt }))
+              }
+              trainStatus={trainStations.status}
+              trainDataset={trainStations.data}
+              onRetryTrains={trainStations.retry}
+              hawkerEnabled={mapLayers.hawker}
+              onHawkerEnabledChange={(hawker) =>
+                setMapLayers((current) => ({ ...current, hawker }))
+              }
+              hawkerStatus={hawkerCentres.status}
+              hawkerDataset={hawkerCentres.data}
+              onRetryHawkers={hawkerCentres.retry}
+              parksEnabled={mapLayers.parks}
+              onParksEnabledChange={(parks) =>
+                setMapLayers((current) => ({ ...current, parks }))
+              }
+              parkStatus={parks.status}
+              parkDataset={parks.data}
+              onRetryParks={parks.retry}
+              primarySchoolsEnabled={mapLayers.primarySchools}
+              onPrimarySchoolsEnabledChange={(primarySchools) =>
+                setMapLayers((current) => ({
+                  ...current,
+                  primarySchools,
+                }))
+              }
+              primarySchoolStatus={primarySchools.status}
+              primarySchoolDataset={primarySchools.data}
+              onRetryPrimarySchools={primarySchools.retry}
+            />
+            {selectedSummary ? (
+              <MapProjectSelection
+                summary={selectedSummary}
+                onClose={() => setSelectedSlug(null)}
+                className="absolute inset-x-3 bottom-3 z-20 lg:hidden"
+              />
+            ) : null}
           </div>
         ) : null}
       </div>

@@ -1,5 +1,9 @@
 import { v } from "convex/values";
 import {
+  amenityCategoryValidator,
+  amenityGeometryAccuracyValidator,
+  amenityGeometryRoleValidator,
+  amenityStatusValidator,
   btoFlatTypeValidator,
   classificationValidator,
   confidenceValidator,
@@ -148,6 +152,25 @@ export const mrtStationValidator = v.object({
   line: v.string(),
   lat: v.number(),
   lng: v.number(),
+});
+
+export const amenityValidator = v.object({
+  _id: v.id("amenities"),
+  _creationTime: v.number(),
+  sourceKey: v.string(),
+  externalId: v.string(),
+  sourceId: v.id("sources"),
+  name: v.string(),
+  category: amenityCategoryValidator,
+  status: amenityStatusValidator,
+  lat: v.number(),
+  lng: v.number(),
+  spatialCell: v.string(),
+  geometryAccuracy: amenityGeometryAccuracyValidator,
+  geometryRole: amenityGeometryRoleValidator,
+  address: v.optional(v.string()),
+  effectiveDate: v.optional(v.string()),
+  lastVerifiedAt: v.number(),
 });
 
 export const userValidator = v.object({

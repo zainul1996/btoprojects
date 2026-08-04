@@ -131,7 +131,7 @@
     @apply font-sans;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply relative bg-background text-foreground;
   }
 
   /* Heading scale — Inter, slightly tight tracking on large sizes */

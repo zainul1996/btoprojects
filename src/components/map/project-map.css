@@ -47,15 +47,207 @@
    point markers; the focused marker always floats above both. */
 .bto-map-marker[data-variant="area"],
 .bto-map-marker[data-variant="area-sbf"] {
-  z-index: 0;
-}
-
-.bto-map-marker:not([data-variant]) {
   z-index: 1;
 }
 
-.bto-map-marker[data-focused="true"] {
+.bto-map-marker:not([data-variant]) {
   z-index: 2;
+}
+
+.bto-map-marker[data-focused="true"] {
+  z-index: 3;
+}
+
+/* Stations remain secondary to project results. The button keeps a generous
+   keyboard/touch target while the visible symbol responds to map density. */
+.bto-mrt-marker {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.bto-hawker-marker {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.bto-hawker-marker__symbol,
+.bto-hawker-legend__symbol {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--teal-deep);
+  border-radius: 9999px 9999px 9999px 3px;
+  background: var(--surface);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 22%, transparent);
+  transform: rotate(-45deg);
+  transition:
+    opacity 140ms ease,
+    scale 140ms ease;
+}
+
+.bto-hawker-marker[data-status="planned"] .bto-hawker-marker__symbol,
+.bto-hawker-legend__symbol[data-variant="planned"] {
+  border-style: dashed;
+  background: color-mix(in oklab, var(--teal-subtle) 65%, var(--surface));
+}
+
+.bto-hawker-marker[data-density="quiet"] .bto-hawker-marker__symbol {
+  opacity: 0.68;
+  scale: 0.72;
+}
+
+.bto-hawker-marker[data-density="hidden"] {
+  visibility: hidden;
+}
+
+.bto-hawker-marker:hover .bto-hawker-marker__symbol,
+.bto-hawker-marker:focus-visible .bto-hawker-marker__symbol {
+  opacity: 1;
+  scale: 1.35;
+}
+
+.bto-hawker-marker:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+
+.bto-park-marker {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.bto-park-marker__symbol,
+.bto-park-legend__symbol {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 1.5px solid color-mix(in oklab, var(--teal-deep) 72%, black);
+  border-radius: 8px 2px 8px 2px;
+  background: color-mix(in oklab, var(--teal-subtle) 80%, var(--surface));
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 20%, transparent);
+  transform: rotate(45deg);
+  transition: scale 140ms ease;
+}
+
+.bto-school-marker {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  place-items: center;
+  background: transparent;
+  border: 0;
+  border-radius: 9999px;
+  cursor: pointer;
+  z-index: 0;
+}
+
+.bto-school-marker__symbol,
+.bto-school-legend__symbol {
+  display: block;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--paper);
+  border-radius: 3px;
+  background: var(--navy);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--navy) 62%, transparent),
+    0 1px 3px color-mix(in oklab, var(--navy) 20%, transparent);
+  transition: transform 140ms ease;
+}
+
+.bto-school-marker:hover .bto-school-marker__symbol,
+.bto-school-marker:focus-visible .bto-school-marker__symbol {
+  transform: scale(1.35);
+}
+
+.bto-school-marker:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+
+.bto-school-legend__symbol {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+.bto-park-marker:hover .bto-park-marker__symbol,
+.bto-park-marker:focus-visible .bto-park-marker__symbol {
+  scale: 1.35;
+}
+
+.bto-park-marker:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
+}
+
+.bto-park-legend__symbol {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+.bto-mrt-marker__symbol,
+.bto-mrt-legend__symbol {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--navy);
+  border-radius: 3px;
+  background: var(--paper);
+  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 24%, transparent);
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.bto-mrt-marker[data-density="quiet"] .bto-mrt-marker__symbol {
+  opacity: 0.72;
+  transform: scale(0.72);
+}
+
+.bto-mrt-marker[data-density="hidden"] {
+  visibility: hidden;
+}
+
+.bto-mrt-marker:hover .bto-mrt-marker__symbol,
+.bto-mrt-marker:focus-visible .bto-mrt-marker__symbol {
+  opacity: 1;
+  transform: scale(1.35);
+}
+
+.bto-mrt-marker:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 0;
 }
 
 /* Announced projects: a large, soft halo behind the dot — the marker reads
@@ -101,6 +293,23 @@
 .bto-map-legend__symbol[data-variant="sbf"] {
   background: var(--navy);
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--navy) 14%, transparent);
+}
+
+.bto-mrt-legend__symbol {
+  width: 10px;
+  height: 10px;
+  flex: none;
+}
+
+@media (max-width: 63.999rem) {
+  [data-has-selection="true"] .maplibregl-ctrl-bottom-right {
+    bottom: 178px;
+  }
+
+  .maplibregl-ctrl-bottom-left,
+  .maplibregl-ctrl-bottom-right {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 
 .bto-map-legend__symbol[data-variant="sbf"] {

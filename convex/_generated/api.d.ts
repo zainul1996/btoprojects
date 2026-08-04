@@ -10,6 +10,7 @@
 
 import type * as alerts from "../alerts.js";
 import type * as alertsEngine from "../alertsEngine.js";
+import type * as amenities from "../amenities.js";
 import type * as crons from "../crons.js";
 import type * as datagov from "../datagov.js";
 import type * as exercises from "../exercises.js";
@@ -55,6 +56,7 @@ import type {
 declare const fullApi: ApiFromModules<{
   alerts: typeof alerts;
   alertsEngine: typeof alertsEngine;
+  amenities: typeof amenities;
   crons: typeof crons;
   datagov: typeof datagov;
   exercises: typeof exercises;

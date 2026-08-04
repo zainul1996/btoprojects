@@ -70,6 +70,33 @@ export const alertEventDeliveryPhaseValidator = v.union(
   v.literal("project"),
   v.literal("town"),
 );
+export const amenityCategoryValidator = v.union(
+  v.literal("hawker"),
+  v.literal("supermarket"),
+  v.literal("park"),
+  v.literal("primary_school"),
+  v.literal("childcare"),
+  v.literal("healthcare"),
+  v.literal("mall"),
+  v.literal("sports"),
+  v.literal("community"),
+  v.literal("library"),
+  v.literal("place_of_worship"),
+  v.literal("bus_stop"),
+);
+export const amenityStatusValidator = v.union(
+  v.literal("current"),
+  v.literal("planned"),
+);
+export const amenityGeometryAccuracyValidator = v.union(
+  v.literal("exact"),
+  v.literal("approximate"),
+);
+export const amenityGeometryRoleValidator = v.union(
+  v.literal("site"),
+  v.literal("entrance"),
+  v.literal("centroid"),
+);
 
 export default defineSchema({
   exercises: defineTable({
@@ -181,6 +208,55 @@ export default defineSchema({
     address: v.optional(v.string()),
     town: v.optional(v.string()),
   }).index("by_name", ["name"]),
+
+  // Buyer-relevant map points from attributed datasets. MRT/LRT stations and
+  // schools keep their existing tables. A school only enters this table after
+  // a source supplies or a documented geocoder resolves its coordinates.
+  amenities: defineTable({
+    sourceKey: v.string(), // stable dataset key, e.g. "datagov:<dataset id>"
+    externalId: v.string(), // stable record id within that source
+    sourceId: v.id("sources"), // provenance for the latest verification
+    name: v.string(),
+    category: amenityCategoryValidator,
+    status: amenityStatusValidator,
+    lat: v.number(),
+    lng: v.number(),
+    spatialCell: v.string(),
+    geometryAccuracy: amenityGeometryAccuracyValidator,
+    geometryRole: amenityGeometryRoleValidator,
+    address: v.optional(v.string()),
+    effectiveDate: v.optional(v.string()),
+    lastVerifiedAt: v.number(),
+  })
+    .index("by_source_record", ["sourceKey", "externalId"])
+    .index("by_category_status_cell", [
+      "category",
+      "status",
+      "spatialCell",
+    ]),
+
+  // A fetched snapshot is staged here before it replaces published amenity
+  // rows. Failed adapters leave the last complete snapshot untouched.
+  amenityStaging: defineTable({
+    sourceKey: v.string(),
+    externalId: v.string(),
+    sourceId: v.id("sources"),
+    name: v.string(),
+    category: amenityCategoryValidator,
+    status: amenityStatusValidator,
+    lat: v.number(),
+    lng: v.number(),
+    spatialCell: v.string(),
+    geometryAccuracy: amenityGeometryAccuracyValidator,
+    geometryRole: amenityGeometryRoleValidator,
+    address: v.optional(v.string()),
+    effectiveDate: v.optional(v.string()),
+    lastVerifiedAt: v.number(),
+  }).index("by_source_and_record", [
+    "sourceId",
+    "sourceKey",
+    "externalId",
+  ]),
 
   resaleTransactions: defineTable({
     town: v.string(),
