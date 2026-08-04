@@ -6,10 +6,20 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import "./project-map.css";
 
 import type { HawkerCentre } from "@/components/map/hawker-data";
+import {
+  AmenityMapSymbol,
+  createAmenityMapSymbol,
+} from "@/components/map/map-amenity-symbol";
 import type { Park } from "@/components/map/park-data";
 import type { PrimarySchool } from "@/components/map/school-data";
 import type { TrainStation } from "@/components/map/train-data";
-import { MAP_STYLE_URL, MAP_WORKER_URL, SG_BOUNDS, SG_CENTER } from "@/lib/map";
+import {
+  MAP_STYLE_URL,
+  MAP_WORKER_URL,
+  SG_BOUNDS,
+  SG_CENTER,
+  SG_MIN_ZOOM,
+} from "@/lib/map";
 import { cn } from "@/lib/utils";
 
 // Serve the worker from /public — the default import.meta.url derivation 404s under Turbopack.
@@ -115,7 +125,9 @@ export function ProjectMap({
   const popupRef = useRef<maplibregl.Popup | null>(null);
   const popupSlugRef = useRef<string | null>(null);
   const projectsRef = useRef<ProjectMapItem[]>(projects.filter(hasRealCoords));
-  const mrtStationsRef = useRef<MrtMapItem[]>(mrtStations.filter(hasRealCoords));
+  const mrtStationsRef = useRef<MrtMapItem[]>(
+    mrtStations.filter(hasRealCoords),
+  );
   const showMrtStationsRef = useRef(showMrtStations);
   const hawkerCentresRef = useRef<HawkerMapItem[]>(
     hawkerCentres.filter(hasRealCoords),
@@ -412,14 +424,12 @@ export function ProjectMap({
   function createMrtMarker(station: MrtMapItem): maplibregl.Marker {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "bto-mrt-marker";
+    el.className = "bto-amenity-marker bto-mrt-marker";
     el.setAttribute(
       "aria-label",
       `${station.name}${station.code ? ` ${station.code}` : ""} ${station.mode.toUpperCase()} station; show details`,
     );
-    const symbol = document.createElement("span");
-    symbol.className = "bto-mrt-marker__symbol";
-    symbol.setAttribute("aria-hidden", "true");
+    const symbol = createAmenityMapSymbol("mrt", "bto-mrt-marker__symbol");
     el.appendChild(symbol);
     el.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -435,15 +445,17 @@ export function ProjectMap({
   function createHawkerMarker(centre: HawkerMapItem): maplibregl.Marker {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "bto-hawker-marker";
+    el.className = "bto-amenity-marker bto-hawker-marker";
     el.dataset.status = centre.status;
     el.setAttribute(
       "aria-label",
       `${centre.name}, ${centre.status === "planned" ? "planned" : "current"} hawker centre; show details`,
     );
-    const symbol = document.createElement("span");
-    symbol.className = "bto-hawker-marker__symbol";
-    symbol.setAttribute("aria-hidden", "true");
+    const symbol = createAmenityMapSymbol(
+      "hawker",
+      "bto-hawker-marker__symbol",
+      centre.status === "planned" ? "planned" : undefined,
+    );
     el.appendChild(symbol);
     el.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -459,14 +471,12 @@ export function ProjectMap({
   function createParkMarker(park: ParkMapItem): maplibregl.Marker {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "bto-park-marker";
+    el.className = "bto-amenity-marker bto-park-marker";
     el.setAttribute(
       "aria-label",
       `${park.name}, approximate park-area centre; show details`,
     );
-    const symbol = document.createElement("span");
-    symbol.className = "bto-park-marker__symbol";
-    symbol.setAttribute("aria-hidden", "true");
+    const symbol = createAmenityMapSymbol("park", "bto-park-marker__symbol");
     el.appendChild(symbol);
     el.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -484,14 +494,15 @@ export function ProjectMap({
   ): maplibregl.Marker {
     const el = document.createElement("button");
     el.type = "button";
-    el.className = "bto-school-marker";
+    el.className = "bto-amenity-marker bto-school-marker";
     el.setAttribute(
       "aria-label",
       `${school.name}, approximate school site; show details`,
     );
-    const symbol = document.createElement("span");
-    symbol.className = "bto-school-marker__symbol";
-    symbol.setAttribute("aria-hidden", "true");
+    const symbol = createAmenityMapSymbol(
+      "school",
+      "bto-school-marker__symbol",
+    );
     el.appendChild(symbol);
     el.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -595,7 +606,9 @@ export function ProjectMap({
     const bounds = map.getBounds();
     const items =
       showParksRef.current && map.getZoom() >= PARK_MIN_ZOOM
-        ? parksRef.current.filter((park) => bounds.contains([park.lng, park.lat]))
+        ? parksRef.current.filter((park) =>
+            bounds.contains([park.lng, park.lat]),
+          )
         : [];
     const seen = new Set<string>();
 
@@ -641,10 +654,7 @@ export function ProjectMap({
       if (existing) {
         existing.setLngLat([school.lng, school.lat]);
       } else {
-        markers.set(
-          school.id,
-          createPrimarySchoolMarker(school).addTo(map),
-        );
+        markers.set(school.id, createPrimarySchoolMarker(school).addTo(map));
       }
     }
 
@@ -738,6 +748,7 @@ export function ProjectMap({
       style: MAP_STYLE_URL,
       center: SG_CENTER,
       zoom: initialZoomRef.current,
+      minZoom: SG_MIN_ZOOM,
       maxBounds: SG_BOUNDS,
       attributionControl: { compact: true },
     });
@@ -829,9 +840,7 @@ export function ProjectMap({
     showMrtStations && mrtStations.length > 0 && mapZoom < MRT_MIN_ZOOM
       ? "MRT and LRT stations"
       : null,
-    showHawkerCentres &&
-    hawkerCentres.length > 0 &&
-    mapZoom < HAWKER_MIN_ZOOM
+    showHawkerCentres && hawkerCentres.length > 0 && mapZoom < HAWKER_MIN_ZOOM
       ? "hawker centres"
       : null,
     showPrimarySchools &&
@@ -839,9 +848,7 @@ export function ProjectMap({
     mapZoom < PRIMARY_SCHOOL_MIN_ZOOM
       ? "primary schools"
       : null,
-    showParks && parks.length > 0 && mapZoom < PARK_MIN_ZOOM
-      ? "parks"
-      : null,
+    showParks && parks.length > 0 && mapZoom < PARK_MIN_ZOOM ? "parks" : null,
   ].filter((label): label is string => label !== null);
 
   const zoomHint =
@@ -850,7 +857,10 @@ export function ProjectMap({
       : null;
 
   return (
-    <div className={cn("relative h-full w-full bg-muted", className)}>
+    <div
+      className={cn("relative h-full w-full bg-muted", className)}
+      data-map-zoom={mapZoom.toFixed(2)}
+    >
       <div
         ref={containerRef}
         className="h-full w-full"
@@ -892,36 +902,42 @@ export function ProjectMap({
         </span>
         {showMrtStations && mrtStations.length > 0 ? (
           <span className="inline-flex items-center gap-1.5">
-            <span className="bto-mrt-legend__symbol" aria-hidden />
+            <AmenityMapSymbol kind="mrt" className="bto-mrt-legend__symbol" />
             MRT/LRT
           </span>
         ) : null}
         {showHawkerCentres && hawkerCentres.length > 0 ? (
           <span className="inline-flex items-center gap-1.5">
-            <span className="bto-hawker-legend__symbol" aria-hidden />
+            <AmenityMapSymbol
+              kind="hawker"
+              className="bto-hawker-legend__symbol"
+            />
             Hawker centre
           </span>
         ) : null}
         {showHawkerCentres &&
         hawkerCentres.some((centre) => centre.status === "planned") ? (
           <span className="inline-flex items-center gap-1.5">
-            <span
+            <AmenityMapSymbol
+              kind="hawker"
               className="bto-hawker-legend__symbol"
-              data-variant="planned"
-              aria-hidden
+              variant="planned"
             />
             Planned hawker
           </span>
         ) : null}
         {showParks && parks.length > 0 ? (
           <span className="inline-flex items-center gap-1.5">
-            <span className="bto-park-legend__symbol" aria-hidden />
+            <AmenityMapSymbol kind="park" className="bto-park-legend__symbol" />
             Park area
           </span>
         ) : null}
         {showPrimarySchools && primarySchools.length > 0 ? (
           <span className="inline-flex items-center gap-1.5">
-            <span className="bto-school-legend__symbol" aria-hidden />
+            <AmenityMapSymbol
+              kind="school"
+              className="bto-school-legend__symbol"
+            />
             Primary school
           </span>
         ) : null}

@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 
 import type { HawkerDataset } from "@/components/map/hawker-data";
+import { AmenityMapSymbol } from "@/components/map/map-amenity-symbol";
 import { activeMapLayerCount } from "@/components/map/map-layer-model";
 import type { ParkDataset } from "@/components/map/park-data";
 import type { PrimarySchoolDataset } from "@/components/map/school-data";
@@ -152,7 +153,9 @@ function LayerOptions({
             htmlFor={`${controlIdPrefix}-trains`}
             className="min-w-0 flex-1 cursor-pointer"
           >
-            <span className="block text-sm font-medium text-ink">MRT and LRT</span>
+            <span className="block text-sm font-medium text-ink">
+              MRT and LRT
+            </span>
             <span className="block text-xs text-muted-foreground">
               {trainStatus === "loading"
                 ? "Loading LTA station locations"
@@ -400,7 +403,10 @@ function MobileMapKey({
   showPrimarySchools: boolean;
 }) {
   return (
-    <section className="mt-4 border-t border-border pt-4 lg:hidden" aria-label="Map key">
+    <section
+      className="mt-4 border-t border-border pt-4 lg:hidden"
+      aria-label="Map key"
+    >
       <h3 className="text-sm font-medium text-ink">Map key</h3>
       <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-2">
@@ -425,35 +431,41 @@ function MobileMapKey({
         </span>
         {showMrt ? (
           <span className="inline-flex items-center gap-2">
-            <span className="bto-mrt-legend__symbol" aria-hidden />
+            <AmenityMapSymbol kind="mrt" className="bto-mrt-legend__symbol" />
             MRT/LRT
           </span>
         ) : null}
         {showHawkers ? (
           <span className="inline-flex items-center gap-2">
-            <span className="bto-hawker-legend__symbol" aria-hidden />
+            <AmenityMapSymbol
+              kind="hawker"
+              className="bto-hawker-legend__symbol"
+            />
             Hawker centre
           </span>
         ) : null}
         {showPlannedHawkers ? (
           <span className="inline-flex items-center gap-2">
-            <span
+            <AmenityMapSymbol
+              kind="hawker"
               className="bto-hawker-legend__symbol"
-              data-variant="planned"
-              aria-hidden
+              variant="planned"
             />
             Planned hawker
           </span>
         ) : null}
         {showParks ? (
           <span className="inline-flex items-center gap-2">
-            <span className="bto-park-legend__symbol" aria-hidden />
+            <AmenityMapSymbol kind="park" className="bto-park-legend__symbol" />
             Park area
           </span>
         ) : null}
         {showPrimarySchools ? (
           <span className="inline-flex items-center gap-2">
-            <span className="bto-school-legend__symbol" aria-hidden />
+            <AmenityMapSymbol
+              kind="school"
+              className="bto-school-legend__symbol"
+            />
             Primary school
           </span>
         ) : null}
@@ -514,9 +526,7 @@ export function MapLayerControl(props: MapLayerControlProps) {
                   props.hawkerEnabled &&
                   (props.hawkerDataset?.items.length ?? 0) > 0
                 }
-                showPlannedHawkers={
-                  props.hawkerEnabled && hasPlannedHawkers
-                }
+                showPlannedHawkers={props.hawkerEnabled && hasPlannedHawkers}
                 showParks={
                   props.parksEnabled &&
                   (props.parkDataset?.items.length ?? 0) > 0

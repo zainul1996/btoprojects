@@ -58,9 +58,9 @@
   z-index: 3;
 }
 
-/* Stations remain secondary to project results. The button keeps a generous
-   keyboard/touch target while the visible symbol responds to map density. */
-.bto-mrt-marker {
+/* Amenities remain secondary to project results. Their 44px controls keep
+   touch targets generous while the pictograms identify each category. */
+.bto-amenity-marker {
   display: grid;
   width: 44px;
   height: 44px;
@@ -74,178 +74,69 @@
   z-index: 0;
 }
 
-.bto-hawker-marker {
+.bto-amenity-symbol {
   display: grid;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  margin: 0;
+  width: 24px;
+  height: 24px;
   place-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 9999px;
-  cursor: pointer;
-  z-index: 0;
-}
-
-.bto-hawker-marker__symbol,
-.bto-hawker-legend__symbol {
-  display: block;
-  width: 11px;
-  height: 11px;
-  border: 2px solid var(--teal-deep);
-  border-radius: 9999px 9999px 9999px 3px;
-  background: var(--surface);
-  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 22%, transparent);
-  transform: rotate(-45deg);
-  transition:
-    opacity 140ms ease,
-    scale 140ms ease;
-}
-
-.bto-hawker-marker[data-status="planned"] .bto-hawker-marker__symbol,
-.bto-hawker-legend__symbol[data-variant="planned"] {
-  border-style: dashed;
-  background: color-mix(in oklab, var(--teal-subtle) 65%, var(--surface));
-}
-
-.bto-hawker-marker[data-density="quiet"] .bto-hawker-marker__symbol {
-  opacity: 0.68;
-  scale: 0.72;
-}
-
-.bto-hawker-marker[data-density="hidden"] {
-  visibility: hidden;
-}
-
-.bto-hawker-marker:hover .bto-hawker-marker__symbol,
-.bto-hawker-marker:focus-visible .bto-hawker-marker__symbol {
-  opacity: 1;
-  scale: 1.35;
-}
-
-.bto-hawker-marker:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 0;
-}
-
-.bto-park-marker {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  margin: 0;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 9999px;
-  cursor: pointer;
-  z-index: 0;
-}
-
-.bto-park-marker__symbol,
-.bto-park-legend__symbol {
-  display: block;
-  width: 11px;
-  height: 11px;
-  border: 1.5px solid color-mix(in oklab, var(--teal-deep) 72%, black);
-  border-radius: 8px 2px 8px 2px;
-  background: color-mix(in oklab, var(--teal-subtle) 80%, var(--surface));
-  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 20%, transparent);
-  transform: rotate(45deg);
-  transition: scale 140ms ease;
-}
-
-.bto-school-marker {
-  display: grid;
-  width: 44px;
-  height: 44px;
-  padding: 0;
-  margin: 0;
-  place-items: center;
-  background: transparent;
-  border: 0;
-  border-radius: 9999px;
-  cursor: pointer;
-  z-index: 0;
-}
-
-.bto-school-marker__symbol,
-.bto-school-legend__symbol {
-  display: block;
-  width: 11px;
-  height: 11px;
   border: 2px solid var(--paper);
-  border-radius: 3px;
-  background: var(--navy);
+  border-radius: 8px;
+  color: white;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--navy) 62%, transparent),
-    0 1px 3px color-mix(in oklab, var(--navy) 20%, transparent);
-  transition: transform 140ms ease;
-}
-
-.bto-school-marker:hover .bto-school-marker__symbol,
-.bto-school-marker:focus-visible .bto-school-marker__symbol {
-  transform: scale(1.35);
-}
-
-.bto-school-marker:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 0;
-}
-
-.bto-school-legend__symbol {
-  width: 10px;
-  height: 10px;
-  flex: none;
-}
-
-.bto-park-marker:hover .bto-park-marker__symbol,
-.bto-park-marker:focus-visible .bto-park-marker__symbol {
-  scale: 1.35;
-}
-
-.bto-park-marker:focus-visible {
-  outline: 2px solid var(--ring);
-  outline-offset: 0;
-}
-
-.bto-park-legend__symbol {
-  width: 10px;
-  height: 10px;
-  flex: none;
-}
-
-.bto-mrt-marker__symbol,
-.bto-mrt-legend__symbol {
-  display: block;
-  width: 10px;
-  height: 10px;
-  border: 2px solid var(--navy);
-  border-radius: 3px;
-  background: var(--paper);
-  box-shadow: 0 1px 3px color-mix(in oklab, var(--navy) 24%, transparent);
+    0 0 0 1px color-mix(in oklab, var(--navy) 24%, transparent),
+    0 2px 5px color-mix(in oklab, var(--navy) 28%, transparent);
   transition:
     opacity 140ms ease,
     transform 140ms ease;
 }
 
-.bto-mrt-marker[data-density="quiet"] .bto-mrt-marker__symbol {
-  opacity: 0.72;
-  transform: scale(0.72);
+.bto-amenity-symbol svg {
+  width: 15px;
+  height: 15px;
+  pointer-events: none;
 }
 
+.bto-amenity-symbol[data-kind="mrt"] {
+  background: #b4434d;
+}
+
+.bto-amenity-symbol[data-kind="hawker"] {
+  border-radius: 9999px;
+  background: #a95f1f;
+}
+
+.bto-amenity-symbol[data-kind="park"] {
+  border-radius: 9999px;
+  background: #3f794d;
+}
+
+.bto-amenity-symbol[data-kind="school"] {
+  background: #5b55a5;
+}
+
+.bto-amenity-symbol[data-kind="hawker"][data-variant="planned"] {
+  border-style: dashed;
+  background: #8a6332;
+}
+
+.bto-hawker-marker[data-density="quiet"] .bto-hawker-marker__symbol,
+.bto-mrt-marker[data-density="quiet"] .bto-mrt-marker__symbol {
+  opacity: 0.72;
+  transform: scale(0.78);
+}
+
+.bto-hawker-marker[data-density="hidden"],
 .bto-mrt-marker[data-density="hidden"] {
   visibility: hidden;
 }
 
-.bto-mrt-marker:hover .bto-mrt-marker__symbol,
-.bto-mrt-marker:focus-visible .bto-mrt-marker__symbol {
+.bto-amenity-marker:hover .bto-amenity-symbol,
+.bto-amenity-marker:focus-visible .bto-amenity-symbol {
   opacity: 1;
-  transform: scale(1.35);
+  transform: scale(1.18);
 }
 
-.bto-mrt-marker:focus-visible {
+.bto-amenity-marker:focus-visible {
   outline: 2px solid var(--ring);
   outline-offset: 0;
 }
@@ -295,10 +186,21 @@
   box-shadow: 0 0 0 4px color-mix(in oklab, var(--navy) 14%, transparent);
 }
 
-.bto-mrt-legend__symbol {
-  width: 10px;
-  height: 10px;
+.bto-mrt-legend__symbol,
+.bto-hawker-legend__symbol,
+.bto-park-legend__symbol,
+.bto-school-legend__symbol {
+  width: 20px;
+  height: 20px;
   flex: none;
+}
+
+.bto-mrt-legend__symbol svg,
+.bto-hawker-legend__symbol svg,
+.bto-park-legend__symbol svg,
+.bto-school-legend__symbol svg {
+  width: 12px;
+  height: 12px;
 }
 
 @media (max-width: 63.999rem) {

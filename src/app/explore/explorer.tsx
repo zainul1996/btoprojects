@@ -36,10 +36,7 @@ import {
 } from "@/components/map/hawker-data";
 import { MapLayerControl } from "@/components/map/map-layer-control";
 import { MapProjectSelection } from "@/components/map/map-project-selection";
-import {
-  parseParkDataset,
-  type ParkDataset,
-} from "@/components/map/park-data";
+import { parseParkDataset, type ParkDataset } from "@/components/map/park-data";
 import {
   parsePrimarySchoolDataset,
   type PrimarySchoolDataset,
@@ -58,6 +55,7 @@ import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -83,10 +81,14 @@ const ProjectMap = dynamic(
   },
 );
 
-const SORT_ITEMS: { value: ExplorerSort; label: string }[] = [
-  { value: "price", label: "Price: low to high" },
-  { value: "wait", label: "Wait: short to long" },
-  { value: "name", label: "Name: A–Z" },
+const SORT_ITEMS: {
+  value: ExplorerSort;
+  label: string;
+  shortLabel: string;
+}[] = [
+  { value: "price", label: "Price: low to high", shortLabel: "Price" },
+  { value: "wait", label: "Wait: short to long", shortLabel: "Wait" },
+  { value: "name", label: "Name: A–Z", shortLabel: "Name" },
 ];
 
 function fromPriceOf(summary: ProjectSummary): number | null {
@@ -128,9 +130,7 @@ function useStaticMapDataset<T>(
   parse: (value: unknown) => T,
 ): StaticDatasetState<T> {
   const [data, setData] = useState<T | null>(null);
-  const [status, setStatus] = useState<StaticDatasetState<T>["status"]>(
-    "idle",
-  );
+  const [status, setStatus] = useState<StaticDatasetState<T>["status"]>("idle");
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -147,7 +147,8 @@ function useStaticMapDataset<T>(
         setStatus("ready");
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError")
+          return;
         setStatus("error");
       });
 
@@ -296,7 +297,11 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const saleCounts = useMemo<SaleCounts | undefined>(() => {
     if (classificationBase === undefined) return undefined;
-    const counts: SaleCounts = { all: classificationBase.length, bto: 0, sbf: 0 };
+    const counts: SaleCounts = {
+      all: classificationBase.length,
+      bto: 0,
+      sbf: 0,
+    };
     for (const r of classificationBase) {
       counts[r.project.saleType ?? "bto"] += 1;
     }
@@ -333,17 +338,15 @@ export function Explorer({ initialParams }: ExplorerProps) {
 
   const visible = useMemo(() => {
     if (statusBase === undefined) return undefined;
-    const narrowed = (
-      filters.status
-        ? statusBase.filter(
-            (r) =>
-              applicationStatusOf(r.project, today, {
-                status: r.exerciseStatus,
-                applicationEnd: r.exerciseApplicationEnd,
-              }) === filters.status,
-          )
-        : [...statusBase]
-    );
+    const narrowed = filters.status
+      ? statusBase.filter(
+          (r) =>
+            applicationStatusOf(r.project, today, {
+              status: r.exerciseStatus,
+              applicationEnd: r.exerciseApplicationEnd,
+            }) === filters.status,
+        )
+      : [...statusBase];
     switch (filters.sort) {
       case "wait":
         // Unknown waits sort last, never first as a misleadingly short wait.
@@ -392,6 +395,8 @@ export function Explorer({ initialParams }: ExplorerProps) {
   const isMap = filters.view === "map";
   const isExercise = filters.view === "exercise";
   const showMap = isMap && visible !== undefined && visible.length > 0;
+  const selectedSort =
+    SORT_ITEMS.find((item) => item.value === filters.sort) ?? SORT_ITEMS[0];
   const focusedSlug = hoveredSlug ?? selectedSlug;
   const selectedSummary = useMemo(
     () =>
@@ -413,14 +418,14 @@ export function Explorer({ initialParams }: ExplorerProps) {
         isMap && "lg:top-0",
       )}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-nowrap items-center gap-2">
         <Sheet>
           <SheetTrigger
             render={
               <Button
                 variant="outline"
                 size="sm"
-                className="lg:hidden"
+                className="shrink-0 px-3 lg:hidden"
                 aria-label={
                   chips.length > 0
                     ? `Open filters, ${chips.length} active`
@@ -466,38 +471,45 @@ export function Explorer({ initialParams }: ExplorerProps) {
           </SheetContent>
         </Sheet>
 
-        <div className="text-sm text-muted-foreground" aria-live="polite">
+        <div
+          className="min-w-0 flex-1 truncate text-sm text-muted-foreground"
+          aria-live="polite"
+        >
           {visible === undefined ? (
             <Skeleton className="inline-block h-4 w-20 align-middle" />
           ) : (
             <span className="tnum font-medium text-ink">
-              {resultCountLabel(visible)}
+              <span className="sm:hidden">{visible.length} results</span>
+              <span className="hidden sm:inline">
+                {resultCountLabel(visible)}
+              </span>
             </span>
           )}
         </div>
 
         {!isExercise ? (
-          <div className="ml-auto">
+          <div className="shrink-0">
             <Select
               items={SORT_ITEMS}
               value={filters.sort}
-              onValueChange={(value) =>
-                patch({ sort: value as ExplorerSort })
-              }
+              onValueChange={(value) => patch({ sort: value as ExplorerSort })}
             >
               <SelectTrigger
                 size="sm"
-                className="max-w-36"
-                aria-label="Sort results"
+                className="w-[5.25rem] sm:w-auto sm:max-w-36"
+                aria-label={`Sort results, ${selectedSort.label}`}
               >
-                <SelectValue />
+                <span className="sm:hidden">{selectedSort.shortLabel}</span>
+                <SelectValue className="hidden sm:flex" />
               </SelectTrigger>
-              <SelectContent>
-                {SORT_ITEMS.map((item) => (
-                  <SelectItem key={item.value} value={item.value}>
-                    {item.label}
-                  </SelectItem>
-                ))}
+              <SelectContent align="end" alignItemWithTrigger={false}>
+                <SelectGroup>
+                  {SORT_ITEMS.map((item) => (
+                    <SelectItem key={item.value} value={item.value}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
               </SelectContent>
             </Select>
           </div>
@@ -579,7 +591,9 @@ export function Explorer({ initialParams }: ExplorerProps) {
   );
 
   const resultList = (
-    <div className={cn("space-y-3 p-4", !showMap && "mx-auto w-full max-w-3xl")}>
+    <div
+      className={cn("space-y-3 p-4", !showMap && "mx-auto w-full max-w-3xl")}
+    >
       {visible === undefined ? (
         <>
           <CardSkeleton />
@@ -673,7 +687,12 @@ export function Explorer({ initialParams }: ExplorerProps) {
           )}
         >
           {resultHeader}
-          <div className={cn("order-3 lg:contents", showMap && "hidden lg:contents")}>
+          <div
+            className={cn(
+              "order-3 lg:contents",
+              showMap && "hidden lg:contents",
+            )}
+          >
             {isExercise ? exerciseContent : resultList}
           </div>
         </section>
